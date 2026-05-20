@@ -1,4 +1,5 @@
 import AppKit
+import ApplicationServices
 import AVFAudio
 import SwiftUI
 
@@ -10,6 +11,22 @@ final class PermissionsService: ObservableObject {
     init() {
         microphone = AVAudioApplication.shared.recordPermission
         accessibility = AXIsProcessTrusted()
+        NSLog("[Perms] init: mic=%ld accessibility=%@",
+              microphone.rawValue, accessibility ? "true" : "false")
+    }
+
+    /// Triggers the native AX prompt (only shows once per process lifetime;
+    /// subsequent calls return the current state without re-prompting).
+    /// Always starts a poll so the published state updates when the user
+    /// flips the switch in System Settings.
+    func promptAccessibility() {
+        let key = kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String
+        let trusted = AXIsProcessTrustedWithOptions([key: true] as CFDictionary)
+        NSLog("[Perms] promptAccessibility → trusted=%@", trusted ? "true" : "false")
+        accessibility = trusted
+        if !trusted {
+            Task { await pollAccessibilityUntilTrusted() }
+        }
     }
 
     /// Requests microphone access. Returns the granted state after the system prompt.
@@ -33,8 +50,16 @@ final class PermissionsService: ObservableObject {
     }
 
     /// Refresh accessibility status synchronously (callers can use this in Settings UI).
-    func refreshAccessibility() {
-        accessibility = AXIsProcessTrusted()
+    @discardableResult
+    func refreshAccessibility() -> Bool {
+        let now = AXIsProcessTrusted()
+        if now != accessibility {
+            NSLog("[Perms] accessibility changed: %@ → %@",
+                  accessibility ? "true" : "false",
+                  now ? "true" : "false")
+        }
+        accessibility = now
+        return now
     }
 
     private func pollAccessibilityUntilTrusted() async {

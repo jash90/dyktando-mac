@@ -50,8 +50,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func currentInjector() -> TextInjector {
-        permissions.refreshAccessibility()
-        return TextInjector(mode: permissions.accessibility ? .accessibilityPaste : .clipboardOnly)
+        let trusted = permissions.refreshAccessibility()
+        NSLog("[App] currentInjector: AX trusted=%@ → mode=%@",
+              trusted ? "true" : "false",
+              trusted ? "accessibilityPaste" : "clipboardOnly")
+        return TextInjector(mode: trusted ? .accessibilityPaste : .clipboardOnly)
+    }
+
+    /// Appends a clipboard-only hint to the HUD preview so the user knows the
+    /// text was *only* copied (no automatic ⌘V) and why.
+    private func annotate(_ preview: String, mode: TextInjector.Mode) -> String {
+        switch mode {
+        case .accessibilityPaste: return preview
+        case .clipboardOnly:      return preview + "  ·  📋 wklej ⌘V (włącz Accessibility w Ustawieniach)"
+        }
     }
 
     private func handle(_ event: HotkeyEvent) {
@@ -140,7 +152,8 @@ extension AppDelegate: AudioCaptureDelegate {
                         let pipeline = PostprocessPipeline(mode: self.currentLanguageMode)
                         let polished = pipeline.apply(result.text)
                         injector.insert(polished)
-                        self.hud.state.finish(preview: polished.isEmpty ? "(brak tekstu)" : polished)
+                        let preview = polished.isEmpty ? "(brak tekstu)" : polished
+                        self.hud.state.finish(preview: self.annotate(preview, mode: injector.mode))
                     }
                 } catch {
                     await MainActor.run {
@@ -163,7 +176,7 @@ extension AppDelegate: AudioCaptureDelegate {
                         let pipeline = PostprocessPipeline(mode: self.currentLanguageMode)
                         let polished = pipeline.apply(chosen.result.text)
                         injector.insert(polished)
-                        self.hud.state.finish(preview: polished)
+                        self.hud.state.finish(preview: self.annotate(polished, mode: injector.mode))
                         Task {
                             await self.stats.record(chosen: chosen.engineID,
                                                     language: chosen.result.language)

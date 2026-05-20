@@ -11,7 +11,7 @@ final class TextInjector {
     /// app to consume the pasteboard via ⌘V.
     private static let restoreDelay: TimeInterval = 0.06
 
-    private let mode: Mode
+    let mode: Mode
 
     init(mode: Mode) { self.mode = mode }
 
