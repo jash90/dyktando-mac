@@ -105,8 +105,10 @@ extension AppDelegate: AudioCaptureDelegate {
                         mode: mode)
                     await MainActor.run {
                         let injector = self.currentInjector()
-                        injector.insert(result.text)
-                        self.hud.state.finish(preview: result.text.isEmpty ? "(brak tekstu)" : result.text)
+                        let pipeline = PostprocessPipeline(mode: self.currentLanguageMode)
+                        let polished = pipeline.apply(result.text)
+                        injector.insert(polished)
+                        self.hud.state.finish(preview: polished.isEmpty ? "(brak tekstu)" : polished)
                     }
                 } catch {
                     await MainActor.run {
@@ -126,8 +128,10 @@ extension AppDelegate: AudioCaptureDelegate {
                     ComparisonWindowController.shared.show(rows: rows) { [weak self] chosen in
                         guard let self else { return }
                         let injector = self.currentInjector()
-                        injector.insert(chosen.result.text)
-                        self.hud.state.finish(preview: chosen.result.text)
+                        let pipeline = PostprocessPipeline(mode: self.currentLanguageMode)
+                        let polished = pipeline.apply(chosen.result.text)
+                        injector.insert(polished)
+                        self.hud.state.finish(preview: polished)
                         Task {
                             await self.stats.record(chosen: chosen.engineID,
                                                     language: chosen.result.language)
