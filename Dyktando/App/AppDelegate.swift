@@ -12,6 +12,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let registry = EngineRegistry()
     private let prefs = Preferences.shared
     private var onboardingWindow: OnboardingWindowController?
+    private var pendingCaptureKind: CaptureKind = .singleEngine
+    private let stats = ComparisonStats()
 
     var sharedRegistry: EngineRegistry { registry }
 
@@ -50,7 +52,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func handle(_ event: HotkeyEvent) {
         switch event {
-        case .startCapture:
+        case .startCapture(let kind):
+            pendingCaptureKind = kind
             do {
                 try audio.start()
                 hud.show(near: NSEvent.mouseLocation)
@@ -85,22 +88,51 @@ extension AppDelegate: AudioCaptureDelegate {
 
         Task { [weak self] in
             guard let self else { return }
-            do {
-                let engine = await MainActor.run { self.registry.active(prefs: self.prefs) }
-                let result = try await engine.transcribe(
-                    samples: samples,
-                    sampleRate: sampleRate,
-                    mode: .single(Locale(identifier: "pl-PL")))
-                await MainActor.run {
-                    let injector = self.currentInjector()
-                    injector.insert(result.text)
-                    self.hud.state.finish(preview: result.text.isEmpty ? "(brak tekstu)" : result.text)
+            let kind = await MainActor.run { self.pendingCaptureKind }
+            switch kind {
+            case .singleEngine:
+                do {
+                    let engine = await MainActor.run { self.registry.active(prefs: self.prefs) }
+                    let result = try await engine.transcribe(
+                        samples: samples,
+                        sampleRate: sampleRate,
+                        mode: .single(Locale(identifier: "pl-PL")))
+                    await MainActor.run {
+                        let injector = self.currentInjector()
+                        injector.insert(result.text)
+                        self.hud.state.finish(preview: result.text.isEmpty ? "(brak tekstu)" : result.text)
+                    }
+                } catch {
+                    await MainActor.run {
+                        self.hud.state.finish(preview: "błąd: \(error)")
+                    }
+                    print("Transcription failed: \(error)")
                 }
-            } catch {
+            case .comparison:
+                let engines = await MainActor.run { Array(self.registry.engines.values) }
+                let router = TranscriptionRouter(engines: engines)
+                let rows = await router.routeAll(samples: samples,
+                                                 sampleRate: sampleRate,
+                                                 mode: .single(Locale(identifier: "pl-PL")))
                 await MainActor.run {
-                    self.hud.state.finish(preview: "błąd: \(error)")
+                    ComparisonWindowController.shared.show(rows: rows) { [weak self] chosen in
+                        guard let self else { return }
+                        let injector = self.currentInjector()
+                        injector.insert(chosen.result.text)
+                        self.hud.state.finish(preview: chosen.result.text)
+                        Task {
+                            await self.stats.record(chosen: chosen.engineID,
+                                                    language: chosen.result.language)
+                            if let nudge = await self.stats.nudgeIfApplicable(for: chosen.result.language) {
+                                await MainActor.run {
+                                    NudgeAlert.askToSetDefault(engine: nudge.winner,
+                                                               winRate: nudge.winRate,
+                                                               prefs: self.prefs)
+                                }
+                            }
+                        }
+                    }
                 }
-                print("Transcription failed: \(error)")
             }
         }
     }
