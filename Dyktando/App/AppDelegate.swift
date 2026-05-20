@@ -2,6 +2,8 @@ import AppKit
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
+    static var shared: AppDelegate? { NSApp.delegate as? AppDelegate }
+
     private var menuBar: MenuBarController?
     private var hotkeys: HotkeyMonitor?
     private let audio = AudioCapture()
@@ -10,6 +12,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let registry = EngineRegistry()
     private let prefs = Preferences.shared
     private var onboardingWindow: OnboardingWindowController?
+
+    var sharedRegistry: EngineRegistry { registry }
 
     private static let onboardingKey = "didCompleteOnboarding"
 
@@ -20,6 +24,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self?.handle(event)
         }
         showOnboardingIfNeeded()
+    }
+
+    @objc func openSettings() {
+        SettingsWindowController.shared.show()
     }
 
     private func showOnboardingIfNeeded() {
@@ -54,8 +62,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         case .stopCapture:
             audio.stop()
             hud.state.beginTranscribing()
-        case .switchModel, .openSettings:
+        case .switchModel:
             break
+        case .openSettings:
+            SettingsWindowController.shared.show()
         }
     }
 }

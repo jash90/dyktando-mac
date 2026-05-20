@@ -15,8 +15,9 @@ final class MenuBarController {
     private func makeMenu() -> NSMenu {
         let menu = NSMenu()
         let settings = NSMenuItem(title: "Ustawienia…",
-                                  action: nil,    // M6 will wire openSettings
+                                  action: #selector(AppDelegate.openSettings),
                                   keyEquivalent: ",")
+        settings.target = NSApp.delegate
         menu.addItem(settings)
         menu.addItem(.separator())
         let quit = NSMenuItem(title: "Zakończ",
