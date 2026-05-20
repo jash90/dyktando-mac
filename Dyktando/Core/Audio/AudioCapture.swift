@@ -45,6 +45,8 @@ final class AudioCapture {
     private func handleTap(_ pcm: AVAudioPCMBuffer) {
         guard let converter else { return }
 
+        // Assumes input sample rate >= 16 kHz (true for all macOS built-in/USB mics).
+        // At ratio ≤ 1, AVAudioConverter completes in a single input buffer call.
         let ratio = targetFormat.sampleRate / pcm.format.sampleRate
         let outFrames = AVAudioFrameCount(Double(pcm.frameLength) * ratio)
         guard outFrames > 0,

@@ -35,12 +35,14 @@ extension AppDelegate: AudioCaptureDelegate {
     nonisolated func audioCapture(_ capture: AudioCapture,
                                   finishedWith samples: [Float],
                                   sampleRate: Double) {
-        let url = AppPaths.support.appendingPathComponent("last-recording.caf")
-        do {
-            try WAVWriter.write(samples, sampleRate: sampleRate, to: url)
-            print("Saved recording: \(url.path)")
-        } catch {
-            print("WAV write failed: \(error)")
+        DispatchQueue.global(qos: .utility).async {
+            let url = AppPaths.support.appendingPathComponent("last-recording.caf")
+            do {
+                try WAVWriter.write(samples, sampleRate: sampleRate, to: url)
+                print("Saved recording: \(url.path)")
+            } catch {
+                print("WAV write failed: \(error)")
+            }
         }
     }
 }
