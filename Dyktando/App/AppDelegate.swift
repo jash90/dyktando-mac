@@ -122,6 +122,43 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc func openCommands() {
         CommandsWindowController.shared.show()
     }
+
+    /// Sends post-processed text through Gemma to decide whether it maps to
+    /// a skill. Returns `true` if a skill was executed (so the caller skips
+    /// the plain-text fallback), `false` otherwise. Errors fall through to
+    /// the fallback rather than failing the whole utterance.
+    @MainActor
+    func tryAIRoute(text: String) async -> Bool {
+        guard prefs.aiEnabled else { return false }
+        guard let host = URL(string: prefs.ollamaHost) else { return false }
+        let client = OllamaClient(host: host, model: prefs.ollamaModel)
+        let router = IntentRouter(client: client)
+
+        do {
+            let decision = try await router.decide(text: text)
+            switch decision {
+            case .none:
+                return false
+            case .skill(let id, let params):
+                guard let skill = SkillRegistry.skill(id: id) else {
+                    NSLog("[AI] unknown skill '%@'", id)
+                    return false
+                }
+                do {
+                    let preview = try await skill.run(params: params)
+                    self.hud.state.finish(preview: "🤖 \(preview)")
+                    return true
+                } catch {
+                    NSLog("[AI] skill '%@' failed: %@", id, "\(error)")
+                    self.hud.state.finish(preview: "🤖 błąd: \(error.localizedDescription)")
+                    return true
+                }
+            }
+        } catch {
+            NSLog("[AI] router failed: %@", "\(error)")
+            return false
+        }
+    }
 }
 
 extension AppDelegate: AudioCaptureDelegate {
@@ -161,19 +198,29 @@ extension AppDelegate: AudioCaptureDelegate {
                         samples: samples,
                         sampleRate: sampleRate,
                         mode: mode)
-                    await MainActor.run {
-                        let pipeline = PostprocessPipeline(mode: self.currentLanguageMode)
-                        let polished = pipeline.apply(result.text)
+                    let polished = await MainActor.run {
+                        PostprocessPipeline(mode: self.currentLanguageMode).apply(result.text)
+                    }
 
-                        // Voice command match takes precedence over text insertion.
-                        if let cmd = CommandStore.shared.match(polished) {
+                    // 1) Exact-match voice command (fast, deterministic).
+                    let matched: Command? = await MainActor.run {
+                        CommandStore.shared.match(polished)
+                    }
+                    if let cmd = matched {
+                        await MainActor.run {
                             self.hud.state.finish(preview: "▶ \(cmd.name.isEmpty ? cmd.trigger : cmd.name)")
-                            Task.detached(priority: .userInitiated) {
-                                await CommandRunner().run(cmd)
-                            }
-                            return
                         }
+                        await CommandRunner().run(cmd)
+                        return
+                    }
 
+                    // 2) AI routing via Gemma (Ollama) if enabled.
+                    if await self.tryAIRoute(text: polished) {
+                        return
+                    }
+
+                    // 3) Fallback: insert text into the foreground app.
+                    await MainActor.run {
                         let injector = self.currentInjector()
                         injector.insert(polished)
                         let preview = polished.isEmpty ? "(brak tekstu)" : polished

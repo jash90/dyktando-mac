@@ -17,5 +17,14 @@ final class Preferences: ObservableObject {
     @AppStorage("launchAtLogin")
     var launchAtLogin: Bool = false
 
+    @AppStorage("aiEnabled")
+    var aiEnabled: Bool = false
+
+    @AppStorage("ollamaHost")
+    var ollamaHost: String = "http://localhost:11434"
+
+    @AppStorage("ollamaModel")
+    var ollamaModel: String = "gemma4:latest"
+
     private init() {}
 }

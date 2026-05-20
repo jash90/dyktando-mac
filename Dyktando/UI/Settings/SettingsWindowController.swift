@@ -6,7 +6,7 @@ final class SettingsWindowController: NSWindowController {
     static let shared = SettingsWindowController()
 
     private init() {
-        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 820, height: 540),
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 860, height: 560),
                               styleMask: [.titled, .closable, .miniaturizable],
                               backing: .buffered, defer: false)
         window.title = "Dyktando — Ustawienia"
@@ -37,6 +37,8 @@ struct SettingsRoot: View {
                 .tabItem { Label("Skróty", systemImage: "keyboard") }
             AudioTab()
                 .tabItem { Label("Audio", systemImage: "speaker.wave.2") }
+            AITab()
+                .tabItem { Label("AI", systemImage: "sparkles") }
             PrivacyTab()
                 .tabItem { Label("Prywatność", systemImage: "lock.shield") }
         }
