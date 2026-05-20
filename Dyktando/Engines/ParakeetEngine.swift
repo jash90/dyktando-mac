@@ -90,18 +90,17 @@ final class ParakeetEngine: TranscriptionEngine, @unchecked Sendable {
     // MARK: - Private helpers
 
     private static func languageHint(for mode: LanguageMode) -> Language? {
-        let identifier: String?
         switch mode {
         case .single(let locale):
-            identifier = String(locale.identifier.prefix(2))
-        case .multilingualAuto(let locales):
-            // Prefer Polish if present; else use first locale.
-            identifier = locales.first { $0.identifier.hasPrefix("pl") }?.identifier
-                ?? locales.first.map { String($0.identifier.prefix(2)) }
-        case .mixed(let primary, _):
-            identifier = String(primary.identifier.prefix(2))
+            // Pass a language hint so v3 applies script-aware token filtering.
+            let id = String(locale.identifier.prefix(2))
+            return Language(rawValue: id)
+        case .multilingualAuto, .mixed:
+            // Multi-language modes may span different scripts (e.g. pl + ru, pl + el).
+            // Passing a script filter would suppress valid tokens from non-dominant
+            // scripts. Return nil so FluidAudio decodes without script bias —
+            // matching WhisperKit's behaviour for these modes.
+            return nil
         }
-        guard let id = identifier else { return nil }
-        return Language(rawValue: id)
     }
 }
