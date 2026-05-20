@@ -25,9 +25,11 @@ final class HotkeyMonitor {
 
     private func bind() {
         KeyboardShortcuts.onKeyDown(for: .pushToTalk) { [weak self] in
+            NSLog("[Hotkey] PTT keyDown")
             self?.start(.singleEngine)
         }
         KeyboardShortcuts.onKeyUp(for: .pushToTalk) { [weak self] in
+            NSLog("[Hotkey] PTT keyUp")
             self?.stop()
         }
         KeyboardShortcuts.onKeyDown(for: .toggleDictation) { [weak self] in

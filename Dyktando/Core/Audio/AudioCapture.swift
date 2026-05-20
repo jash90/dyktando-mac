@@ -23,7 +23,7 @@ final class AudioCapture {
     func start() throws {
         let input = engine.inputNode
         let inputFormat = input.outputFormat(forBus: 0)
-        print("[Audio] inputFormat: sr=\(inputFormat.sampleRate) ch=\(inputFormat.channelCount) common=\(inputFormat.commonFormat.rawValue)")
+        NSLog("[Audio] start() called, inputFormat: sr=%f ch=%d common=%d", inputFormat.sampleRate, inputFormat.channelCount, inputFormat.commonFormat.rawValue)
 
         guard inputFormat.channelCount > 0, inputFormat.sampleRate > 0 else {
             throw NSError(
@@ -41,14 +41,14 @@ final class AudioCapture {
         }
         engine.prepare()
         try engine.start()
-        print("[Audio] engine started, isRunning=\(engine.isRunning)")
+        NSLog("[Audio] engine started, isRunning=%@", engine.isRunning ? "true" : "false")
     }
 
     func stop() {
         engine.inputNode.removeTap(onBus: 0)
         engine.stop()
         let samples = buffer.drain()
-        print("[Audio] stop: captured \(samples.count) samples (\(String(format: "%.2f", Double(samples.count) / targetFormat.sampleRate))s)")
+        NSLog("[Audio] stop() called, captured %d samples (%.2fs)", samples.count, Double(samples.count) / targetFormat.sampleRate)
         delegate?.audioCapture(self,
                                finishedWith: samples,
                                sampleRate: targetFormat.sampleRate)
