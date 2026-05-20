@@ -1,0 +1,43 @@
+name: Dyktando
+options:
+  bundleIdPrefix: com.bartekzimny
+  deploymentTarget:
+    macOS: "14.0"
+  developmentLanguage: pl
+settings:
+  base:
+    SWIFT_VERSION: "5.9"
+    MACOSX_DEPLOYMENT_TARGET: "14.0"
+    ENABLE_HARDENED_RUNTIME: YES
+    CODE_SIGN_STYLE: Automatic
+    CODE_SIGN_IDENTITY: "-"
+targets:
+  Dyktando:
+    type: application
+    platform: macOS
+    sources:
+      - path: Dyktando
+    info:
+      path: Dyktando/Info.plist
+      properties:
+        LSUIElement: true
+        CFBundleDisplayName: Dyktando
+        CFBundleShortVersionString: "0.1.0"
+        CFBundleVersion: "1"
+        NSMicrophoneUsageDescription: "Dyktando uses your microphone to transcribe speech into text. Audio never leaves your Mac."
+        NSSpeechRecognitionUsageDescription: "Dyktando uses speech recognition (on-device) to transcribe your voice."
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.bartekzimny.dyktando
+        SWIFT_OBJC_BRIDGING_HEADER: ""
+  DyktandoTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - path: DyktandoTests
+    dependencies:
+      - target: Dyktando
+    settings:
+      base:
+        BUNDLE_LOADER: "$(TEST_HOST)"
+        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/Dyktando.app/Contents/MacOS/Dyktando"
