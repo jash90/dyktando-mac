@@ -6,6 +6,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var hotkeys: HotkeyMonitor?
     private let audio = AudioCapture()
     let hud = HUDController()
+    private let injector = TextInjector(mode: .clipboardOnly)
+    private let engine: TranscriptionEngine = AppleSpeechEngine()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         menuBar = MenuBarController()
@@ -30,7 +32,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             audio.stop()
             hud.state.beginTranscribing()
         case .switchModel, .openSettings:
-            break
+            break  // later milestones
         }
     }
 }
@@ -45,18 +47,31 @@ extension AppDelegate: AudioCaptureDelegate {
     nonisolated func audioCapture(_ capture: AudioCapture,
                                   finishedWith samples: [Float],
                                   sampleRate: Double) {
+        // Disk write (fire and forget)
         DispatchQueue.global(qos: .utility).async {
             let url = AppPaths.support.appendingPathComponent("last-recording.caf")
-            do {
-                try WAVWriter.write(samples, sampleRate: sampleRate, to: url)
-                print("Saved recording: \(url.path)")
-            } catch {
-                print("WAV write failed: \(error)")
-            }
+            try? WAVWriter.write(samples, sampleRate: sampleRate, to: url)
         }
-        Task { @MainActor [weak self] in
-            self?.hud.state.finish(preview: "(audio captured)")
-            // HUD self-hides via finish(...) → .idle after 800ms; no explicit hide needed.
+
+        // Transcribe and surface
+        Task { [weak self] in
+            guard let self else { return }
+            do {
+                let engine = await MainActor.run { self.engine }
+                let result = try await engine.transcribe(
+                    samples: samples,
+                    sampleRate: sampleRate,
+                    mode: .single(Locale(identifier: "pl-PL")))
+                await MainActor.run {
+                    self.injector.insert(result.text)
+                    self.hud.state.finish(preview: result.text.isEmpty ? "(brak tekstu)" : result.text)
+                }
+            } catch {
+                await MainActor.run {
+                    self.hud.state.finish(preview: "błąd: \(error)")
+                }
+                print("Transcription failed: \(error)")
+            }
         }
     }
 }
