@@ -64,6 +64,7 @@ final class HotkeyMonitor {
     }
 
     // MARK: - Testing seams
+    #if DEBUG
     func simulatePushToTalkDown() { start(.singleEngine) }
     func simulatePushToTalkUp() { stop() }
     func simulateToggleTap() { toggle(.singleEngine) }
@@ -71,4 +72,5 @@ final class HotkeyMonitor {
     func simulateComparisonModeUp() { stop() }
     func simulateSwitchModelTap() { emit(.switchModel) }
     func simulateOpenSettingsTap() { emit(.openSettings) }
+    #endif
 }
