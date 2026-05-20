@@ -23,22 +23,26 @@ final class AudioCapture {
 
     func start() throws {
         tapCount = 0
+        converter = nil  // recreated lazily in handleTap from the real pcm.format
         let input = engine.inputNode
-        let inputFormat = input.outputFormat(forBus: 0)
-        NSLog("[Audio] start() called, inputFormat: sr=%f ch=%d common=%d", inputFormat.sampleRate, inputFormat.channelCount, inputFormat.commonFormat.rawValue)
+        let reportedFormat = input.outputFormat(forBus: 0)
+        NSLog("[Audio] start() called, inputNode.outputFormat: sr=%f ch=%d",
+              reportedFormat.sampleRate, reportedFormat.channelCount)
 
-        guard inputFormat.channelCount > 0, inputFormat.sampleRate > 0 else {
+        guard reportedFormat.channelCount > 0, reportedFormat.sampleRate > 0 else {
             throw NSError(
                 domain: "Dyktando.AudioCapture", code: 1,
                 userInfo: [NSLocalizedDescriptionKey:
                     "Mikrofon zwraca format 0 kanałów / 0 Hz — uprawnienie nie zostało przyznane lub brak urządzenia."])
         }
 
-        converter = AVAudioConverter(from: inputFormat, to: targetFormat)
-
+        // Pass `format: nil` so the engine installs the tap with the bus's
+        // actual hardware-driven format. Querying `outputFormat(forBus:)` can
+        // return a stale/internal value (seen: 24 kHz reported, 48 kHz at HW),
+        // which makes `installTap(format:)` raise an uncatchable NSException.
         input.installTap(onBus: 0,
                          bufferSize: 1024,
-                         format: inputFormat) { [weak self] pcm, _ in
+                         format: nil) { [weak self] pcm, _ in
             self?.handleTap(pcm)
         }
         engine.prepare()
@@ -58,7 +62,14 @@ final class AudioCapture {
 
     private func handleTap(_ pcm: AVAudioPCMBuffer) {
         tapCount &+= 1
-        NSLog("[Audio] tap #%d: frames=%d sr=%f", tapCount, pcm.frameLength, pcm.format.sampleRate)
+        NSLog("[Audio] tap #%d: frames=%d sr=%f ch=%d",
+              tapCount, pcm.frameLength, pcm.format.sampleRate, pcm.format.channelCount)
+
+        if converter == nil {
+            converter = AVAudioConverter(from: pcm.format, to: targetFormat)
+            NSLog("[Audio] converter created from real tap format: %f Hz → %f Hz",
+                  pcm.format.sampleRate, targetFormat.sampleRate)
+        }
         guard let converter else { NSLog("[Audio] tap: no converter, skipping"); return }
 
         // Assumes input sample rate >= 16 kHz (true for all macOS built-in/USB mics).
