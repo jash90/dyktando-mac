@@ -6,7 +6,7 @@ final class Preferences: ObservableObject {
     static let shared = Preferences()
 
     @AppStorage("defaultEngineID")
-    var defaultEngineID: String = EngineID.appleSpeechPL.rawValue
+    var defaultEngineID: String = EngineID.parakeetTDTv3.rawValue
 
     @AppStorage("languageModeRaw")
     var languageModeRaw: String = "single:pl-PL"

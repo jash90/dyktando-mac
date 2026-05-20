@@ -3,13 +3,12 @@ import XCTest
 
 @MainActor
 final class EngineRegistryTests: XCTestCase {
-    func test_registry_containsAppleAndWhisperEngines() {
+    func test_registry_containsAllFourEngines() {
         let registry = EngineRegistry()
         XCTAssertNotNil(registry.engine(for: .appleSpeechPL))
         XCTAssertNotNil(registry.engine(for: .whisperLargeV3Turbo))
         XCTAssertNotNil(registry.engine(for: .whisperLargeV3))
-        // Parakeet added later
-        XCTAssertNil(registry.engine(for: .parakeetTDTv3))
+        XCTAssertNotNil(registry.engine(for: .parakeetTDTv3))
     }
 
     func test_active_fallsBackToAppleWhenWhisperNotInstalled() {

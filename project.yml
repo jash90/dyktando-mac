@@ -6,6 +6,9 @@ packages:
   WhisperKit:
     url: https://github.com/argmaxinc/WhisperKit
     from: "0.9.0"
+  FluidAudio:
+    url: https://github.com/FluidInference/FluidAudio
+    from: "0.5.0"
 options:
   bundleIdPrefix: com.bartekzimny
   deploymentTarget:
@@ -39,6 +42,7 @@ targets:
     dependencies:
       - package: KeyboardShortcuts
       - package: WhisperKit
+      - package: FluidAudio
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.bartekzimny.dyktando

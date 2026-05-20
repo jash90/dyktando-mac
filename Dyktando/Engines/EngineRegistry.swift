@@ -8,7 +8,7 @@ final class EngineRegistry: ObservableObject {
         engines[.appleSpeechPL] = AppleSpeechEngine()
         engines[.whisperLargeV3Turbo] = WhisperKitEngine(variant: .largeV3Turbo)
         engines[.whisperLargeV3] = WhisperKitEngine(variant: .largeV3)
-        // Parakeet added in M5.
+        engines[.parakeetTDTv3] = ParakeetEngine()
     }
 
     /// Returns the engine the user has chosen as default, falling back to
