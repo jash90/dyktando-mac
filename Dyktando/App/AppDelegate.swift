@@ -45,6 +45,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.activate(ignoringOtherApps: true)
     }
 
+    private var currentLanguageMode: LanguageMode {
+        LanguageModeCodec.decode(prefs.languageModeRaw)
+    }
+
     private func currentInjector() -> TextInjector {
         permissions.refreshAccessibility()
         return TextInjector(mode: permissions.accessibility ? .accessibilityPaste : .clipboardOnly)
@@ -92,11 +96,13 @@ extension AppDelegate: AudioCaptureDelegate {
             switch kind {
             case .singleEngine:
                 do {
-                    let engine = await MainActor.run { self.registry.active(prefs: self.prefs) }
+                    let (engine, mode) = await MainActor.run {
+                        (self.registry.active(prefs: self.prefs), self.currentLanguageMode)
+                    }
                     let result = try await engine.transcribe(
                         samples: samples,
                         sampleRate: sampleRate,
-                        mode: .single(Locale(identifier: "pl-PL")))
+                        mode: mode)
                     await MainActor.run {
                         let injector = self.currentInjector()
                         injector.insert(result.text)
@@ -109,11 +115,13 @@ extension AppDelegate: AudioCaptureDelegate {
                     print("Transcription failed: \(error)")
                 }
             case .comparison:
-                let engines = await MainActor.run { Array(self.registry.engines.values) }
+                let (engines, compMode) = await MainActor.run {
+                    (Array(self.registry.engines.values), self.currentLanguageMode)
+                }
                 let router = TranscriptionRouter(engines: engines)
                 let rows = await router.routeAll(samples: samples,
                                                  sampleRate: sampleRate,
-                                                 mode: .single(Locale(identifier: "pl-PL")))
+                                                 mode: compMode)
                 await MainActor.run {
                     ComparisonWindowController.shared.show(rows: rows) { [weak self] chosen in
                         guard let self else { return }

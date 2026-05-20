@@ -1,0 +1,15 @@
+Trzeba zrobić deployment na production przed pull requestem.
+Stwórz commit z opisem i wrzuć na main.
+Sprawdź stack overflow w sprawie tego błędu w typescript.
+Mamy nowy backend w nodejs z redis jako cache.
+Zrób code review przed merge.
+Zaktualizuj readme i changelog.
+Dodaj middleware dla authentication.
+Ten endpoint zwraca json z błędem 500.
+Wrzuć obraz dockera do registry.
+Trzeba przetestować na staging przed release.
+W github actions trzeba dodać krok z linterem.
+Sklonuj repo i odpal npm install.
+Frontend i backend komunikują się przez websocket.
+Otwórz pull request i poproś o review.
+Mamy memory leak w workerze.
