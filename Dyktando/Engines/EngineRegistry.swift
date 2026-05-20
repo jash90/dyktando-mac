@@ -2,6 +2,8 @@ import Foundation
 
 @MainActor
 final class EngineRegistry: ObservableObject {
+    static let shared = EngineRegistry()
+
     @Published private(set) var engines: [EngineID: TranscriptionEngine] = [:]
 
     init() {

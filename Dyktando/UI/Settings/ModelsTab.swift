@@ -2,15 +2,12 @@ import SwiftUI
 
 struct ModelsTab: View {
     @ObservedObject var prefs = Preferences.shared
+    @StateObject private var registry = EngineRegistry.shared
     @State private var installing: Set<EngineID> = []
-
-    private var registry: EngineRegistry? {
-        AppDelegate.shared?.sharedRegistry
-    }
 
     var body: some View {
         List(EngineID.allCases, id: \.self) { id in
-            if let engine = registry?.engine(for: id) {
+            if let engine = registry.engine(for: id) {
                 EngineRow(
                     engine: engine,
                     isDefault: prefs.defaultEngineID == id.rawValue,
@@ -21,6 +18,7 @@ struct ModelsTab: View {
                 )
             }
         }
+        .listStyle(.inset)
     }
 
     private func install(_ engine: TranscriptionEngine) {

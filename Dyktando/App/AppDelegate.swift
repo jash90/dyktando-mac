@@ -9,7 +9,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let audio = AudioCapture()
     let hud = HUDController()
     private let permissions = PermissionsService()
-    private let registry = EngineRegistry()
+    private let registry = EngineRegistry.shared
     private let prefs = Preferences.shared
     private var onboardingWindow: OnboardingWindowController?
     private var pendingCaptureKind: CaptureKind = .singleEngine
