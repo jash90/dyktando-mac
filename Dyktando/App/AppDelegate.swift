@@ -111,6 +111,17 @@ extension AppDelegate: AudioCaptureDelegate {
             try? WAVWriter.write(samples, sampleRate: sampleRate, to: url)
         }
 
+        // Guard against empty / too-short recordings before hitting any engine.
+        // SFSpeechRecognizer treats < ~250 ms of audio as "invalid audio data".
+        let minSamples = Int(sampleRate * 0.3)   // 300 ms
+        guard samples.count >= minSamples else {
+            print("[App] Skipping transcription: only \(samples.count) samples (need >= \(minSamples))")
+            Task { @MainActor [weak self] in
+                self?.hud.state.finish(preview: "Za krótko — przytrzymaj F5 dłużej")
+            }
+            return
+        }
+
         Task { [weak self] in
             guard let self else { return }
             let kind = await MainActor.run { self.pendingCaptureKind }

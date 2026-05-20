@@ -23,6 +23,15 @@ final class AudioCapture {
     func start() throws {
         let input = engine.inputNode
         let inputFormat = input.outputFormat(forBus: 0)
+        print("[Audio] inputFormat: sr=\(inputFormat.sampleRate) ch=\(inputFormat.channelCount) common=\(inputFormat.commonFormat.rawValue)")
+
+        guard inputFormat.channelCount > 0, inputFormat.sampleRate > 0 else {
+            throw NSError(
+                domain: "Dyktando.AudioCapture", code: 1,
+                userInfo: [NSLocalizedDescriptionKey:
+                    "Mikrofon zwraca format 0 kanałów / 0 Hz — uprawnienie nie zostało przyznane lub brak urządzenia."])
+        }
+
         converter = AVAudioConverter(from: inputFormat, to: targetFormat)
 
         input.installTap(onBus: 0,
@@ -30,13 +39,16 @@ final class AudioCapture {
                          format: inputFormat) { [weak self] pcm, _ in
             self?.handleTap(pcm)
         }
+        engine.prepare()
         try engine.start()
+        print("[Audio] engine started, isRunning=\(engine.isRunning)")
     }
 
     func stop() {
         engine.inputNode.removeTap(onBus: 0)
         engine.stop()
         let samples = buffer.drain()
+        print("[Audio] stop: captured \(samples.count) samples (\(String(format: "%.2f", Double(samples.count) / targetFormat.sampleRate))s)")
         delegate?.audioCapture(self,
                                finishedWith: samples,
                                sampleRate: targetFormat.sampleRate)
