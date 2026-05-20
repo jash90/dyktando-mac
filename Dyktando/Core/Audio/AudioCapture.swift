@@ -13,6 +13,7 @@ final class AudioCapture {
     private let engine = AVAudioEngine()
     private let buffer = AudioRingBuffer(capacitySeconds: 60, sampleRate: 16_000)
     private var converter: AVAudioConverter?
+    private var tapCount: Int = 0
 
     private let targetFormat = AVAudioFormat(
         commonFormat: .pcmFormatFloat32,
@@ -21,6 +22,7 @@ final class AudioCapture {
         interleaved: false)!
 
     func start() throws {
+        tapCount = 0
         let input = engine.inputNode
         let inputFormat = input.outputFormat(forBus: 0)
         NSLog("[Audio] start() called, inputFormat: sr=%f ch=%d common=%d", inputFormat.sampleRate, inputFormat.channelCount, inputFormat.commonFormat.rawValue)
@@ -48,14 +50,16 @@ final class AudioCapture {
         engine.inputNode.removeTap(onBus: 0)
         engine.stop()
         let samples = buffer.drain()
-        NSLog("[Audio] stop() called, captured %d samples (%.2fs)", samples.count, Double(samples.count) / targetFormat.sampleRate)
+        NSLog("[Audio] stop() called, taps=%d captured %d samples (%.2fs)", tapCount, samples.count, Double(samples.count) / targetFormat.sampleRate)
         delegate?.audioCapture(self,
                                finishedWith: samples,
                                sampleRate: targetFormat.sampleRate)
     }
 
     private func handleTap(_ pcm: AVAudioPCMBuffer) {
-        guard let converter else { return }
+        tapCount &+= 1
+        NSLog("[Audio] tap #%d: frames=%d sr=%f", tapCount, pcm.frameLength, pcm.format.sampleRate)
+        guard let converter else { NSLog("[Audio] tap: no converter, skipping"); return }
 
         // Assumes input sample rate >= 16 kHz (true for all macOS built-in/USB mics).
         // At ratio ≤ 1, AVAudioConverter completes in a single input buffer call.
@@ -63,7 +67,10 @@ final class AudioCapture {
         let outFrames = AVAudioFrameCount(Double(pcm.frameLength) * ratio)
         guard outFrames > 0,
               let out = AVAudioPCMBuffer(pcmFormat: targetFormat,
-                                         frameCapacity: outFrames) else { return }
+                                         frameCapacity: outFrames) else {
+            NSLog("[Audio] tap: outFrames=%d, skip", outFrames)
+            return
+        }
 
         var error: NSError?
         var consumed = false
