@@ -18,9 +18,6 @@ Package.resolved
 # macOS
 .DS_Store
 
-# App data
-~/Library/Application Support/Dyktando/
-
 # Local
 *.dmg
 *.zip

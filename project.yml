@@ -3,14 +3,17 @@ options:
   bundleIdPrefix: com.bartekzimny
   deploymentTarget:
     macOS: "14.0"
-  developmentLanguage: pl
+  developmentLanguage: en
 settings:
   base:
     SWIFT_VERSION: "5.9"
     MACOSX_DEPLOYMENT_TARGET: "14.0"
     ENABLE_HARDENED_RUNTIME: YES
     CODE_SIGN_STYLE: Automatic
-    CODE_SIGN_IDENTITY: "-"
+  configs:
+    Debug:
+      CODE_SIGN_IDENTITY: "-"
+    Release: {}
 targets:
   Dyktando:
     type: application
