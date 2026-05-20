@@ -6,8 +6,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var hotkeys: HotkeyMonitor?
     private let audio = AudioCapture()
     let hud = HUDController()
-    private let injector = TextInjector(mode: .clipboardOnly)
+    private let permissions = PermissionsService()
     private let engine: TranscriptionEngine = AppleSpeechEngine()
+    private var onboardingWindow: OnboardingWindowController?
+
+    private static let onboardingKey = "didCompleteOnboarding"
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         menuBar = MenuBarController()
@@ -15,6 +18,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         hotkeys = HotkeyMonitor { [weak self] event in
             self?.handle(event)
         }
+        showOnboardingIfNeeded()
+    }
+
+    private func showOnboardingIfNeeded() {
+        guard !UserDefaults.standard.bool(forKey: Self.onboardingKey) else { return }
+        let state = OnboardingState(permissions: permissions)
+        let controller = OnboardingWindowController(state: state) { [weak self] in
+            UserDefaults.standard.set(true, forKey: Self.onboardingKey)
+            self?.onboardingWindow?.close()
+            self?.onboardingWindow = nil
+        }
+        onboardingWindow = controller
+        controller.showWindow(nil)
+        NSApp.activate(ignoringOtherApps: true)
+    }
+
+    private func currentInjector() -> TextInjector {
+        permissions.refreshAccessibility()
+        return TextInjector(mode: permissions.accessibility ? .accessibilityPaste : .clipboardOnly)
     }
 
     private func handle(_ event: HotkeyEvent) {
@@ -32,28 +54,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             audio.stop()
             hud.state.beginTranscribing()
         case .switchModel, .openSettings:
-            break  // later milestones
+            break
         }
     }
 }
 
 extension AppDelegate: AudioCaptureDelegate {
     nonisolated func audioCapture(_ capture: AudioCapture, level rms: Float) {
-        Task { @MainActor [weak self] in
-            self?.hud.state.level = rms
-        }
+        Task { @MainActor [weak self] in self?.hud.state.level = rms }
     }
 
     nonisolated func audioCapture(_ capture: AudioCapture,
                                   finishedWith samples: [Float],
                                   sampleRate: Double) {
-        // Disk write (fire and forget)
         DispatchQueue.global(qos: .utility).async {
             let url = AppPaths.support.appendingPathComponent("last-recording.caf")
             try? WAVWriter.write(samples, sampleRate: sampleRate, to: url)
         }
 
-        // Transcribe and surface
         Task { [weak self] in
             guard let self else { return }
             do {
@@ -63,7 +81,8 @@ extension AppDelegate: AudioCaptureDelegate {
                     sampleRate: sampleRate,
                     mode: .single(Locale(identifier: "pl-PL")))
                 await MainActor.run {
-                    self.injector.insert(result.text)
+                    let injector = self.currentInjector()
+                    injector.insert(result.text)
                     self.hud.state.finish(preview: result.text.isEmpty ? "(brak tekstu)" : result.text)
                 }
             } catch {
