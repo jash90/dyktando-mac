@@ -1,4 +1,8 @@
 name: Dyktando
+packages:
+  KeyboardShortcuts:
+    url: https://github.com/sindresorhus/KeyboardShortcuts
+    from: "2.0.0"
 options:
   bundleIdPrefix: com.bartekzimny
   deploymentTarget:
@@ -29,6 +33,8 @@ targets:
         CFBundleVersion: "1"
         NSMicrophoneUsageDescription: "Dyktando uses your microphone to transcribe speech into text. Audio never leaves your Mac."
         NSSpeechRecognitionUsageDescription: "Dyktando uses speech recognition (on-device) to transcribe your voice."
+    dependencies:
+      - package: KeyboardShortcuts
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.bartekzimny.dyktando
