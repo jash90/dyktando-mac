@@ -75,7 +75,13 @@ final class AudioCapture {
         var error: NSError?
         var consumed = false
         converter.convert(to: out, error: &error) { _, status in
-            if consumed { status.pointee = .endOfStream; return nil }
+            if consumed {
+                // Crucial: signal "no more right now" rather than end-of-stream.
+                // Otherwise AVAudioConverter enters terminal state after the first
+                // tap callback and produces zero output for every subsequent call.
+                status.pointee = .noDataNow
+                return nil
+            }
             consumed = true
             status.pointee = .haveData
             return pcm
