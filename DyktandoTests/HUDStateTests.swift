@@ -34,4 +34,13 @@ final class HUDStateTests: XCTestCase {
         state.level = 0.42
         XCTAssertEqual(state.level, 0.42)
     }
+
+    func test_finish_thenBeginListening_doesNotResetToIdle() async throws {
+        let state = HUDState()
+        state.finish(preview: "first")
+        state.beginListening()
+        // Wait longer than the auto-idle 800 ms to confirm the cancelled task does not fire.
+        try await Task.sleep(for: .milliseconds(1000))
+        XCTAssertEqual(state.phase, .listening)
+    }
 }

@@ -18,10 +18,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func handle(_ event: HotkeyEvent) {
         switch event {
         case .startCapture:
-            hud.show(near: NSEvent.mouseLocation)
-            hud.state.beginListening()
-            do { try audio.start() }
-            catch { print("audio.start failed: \(error)") }
+            do {
+                try audio.start()
+                hud.show(near: NSEvent.mouseLocation)
+                hud.state.beginListening()
+            } catch {
+                print("audio.start failed: \(error)")
+                hud.state.resetToIdle()
+            }
         case .stopCapture:
             audio.stop()
             hud.state.beginTranscribing()

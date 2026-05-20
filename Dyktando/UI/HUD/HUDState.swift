@@ -12,16 +12,30 @@ final class HUDState: ObservableObject {
     @Published private(set) var phase: HUDPhase = .idle
     @Published var level: Float = 0
 
-    func beginListening() { phase = .listening }
-    func beginTranscribing() { phase = .transcribing }
+    private var autoIdleTask: Task<Void, Never>?
+
+    func beginListening() {
+        autoIdleTask?.cancel()
+        phase = .listening
+    }
+
+    func beginTranscribing() {
+        autoIdleTask?.cancel()
+        phase = .transcribing
+    }
 
     func finish(preview: String) {
+        autoIdleTask?.cancel()
         phase = .preview(preview)
-        Task {
+        autoIdleTask = Task { [weak self] in
             try? await Task.sleep(for: .milliseconds(800))
-            if case .preview = phase { phase = .idle }
+            guard !Task.isCancelled, let self else { return }
+            self.phase = .idle
         }
     }
 
-    func resetToIdle() { phase = .idle }
+    func resetToIdle() {
+        autoIdleTask?.cancel()
+        phase = .idle
+    }
 }
