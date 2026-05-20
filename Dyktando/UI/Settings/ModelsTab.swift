@@ -4,6 +4,9 @@ struct ModelsTab: View {
     @ObservedObject var prefs = Preferences.shared
     @StateObject private var registry = EngineRegistry.shared
     @State private var installing: Set<EngineID> = []
+    @State private var installProgress: [EngineID: Double] = [:]
+    @State private var alertMessage: String?
+    @State private var registryTick: Int = 0   // force re-render after install completes
 
     var body: some View {
         List(EngineID.allCases, id: \.self) { id in
@@ -12,27 +15,56 @@ struct ModelsTab: View {
                     engine: engine,
                     isDefault: prefs.defaultEngineID == id.rawValue,
                     isInstalling: installing.contains(id),
+                    progress: installProgress[id],
                     onInstall: { install(engine) },
                     onUninstall: { uninstall(engine) },
                     onSetDefault: { prefs.defaultEngineID = id.rawValue }
                 )
+                .id("\(id.rawValue)-\(registryTick)")
             }
         }
         .listStyle(.inset)
+        .alert("Błąd",
+               isPresented: Binding(
+                   get: { alertMessage != nil },
+                   set: { if !$0 { alertMessage = nil } })) {
+            Button("OK") { alertMessage = nil }
+        } message: {
+            Text(alertMessage ?? "")
+        }
     }
 
     private func install(_ engine: TranscriptionEngine) {
         let id = engine.id
         installing.insert(id)
-        Task {
-            do { try await engine.install { _ in } }
-            catch { print("install failed: \(error)") }
+        installProgress[id] = 0
+        Task { @MainActor in
+            do {
+                try await engine.install { fraction in
+                    Task { @MainActor in
+                        installProgress[id] = fraction
+                    }
+                }
+                print("Install OK: \(id.rawValue)")
+            } catch {
+                let msg = "Instalacja \(engine.displayName) nie powiodła się:\n\(error.localizedDescription)\n\nSzczegóły: \(String(describing: error))"
+                print("install failed [\(id.rawValue)]: \(error)")
+                alertMessage = msg
+            }
             installing.remove(id)
+            installProgress[id] = nil
+            registryTick &+= 1
         }
     }
 
     private func uninstall(_ engine: TranscriptionEngine) {
-        do { try engine.uninstall() } catch { print("uninstall failed: \(error)") }
+        do {
+            try engine.uninstall()
+            registryTick &+= 1
+        } catch {
+            alertMessage = "Odinstalowanie nie powiodło się: \(error.localizedDescription)"
+            print("uninstall failed: \(error)")
+        }
     }
 }
 
@@ -40,6 +72,7 @@ struct EngineRow: View {
     let engine: TranscriptionEngine
     let isDefault: Bool
     let isInstalling: Bool
+    let progress: Double?
     let onInstall: () -> Void
     let onUninstall: () -> Void
     let onSetDefault: () -> Void
@@ -59,6 +92,11 @@ struct EngineRow: View {
                 }
                 Text(engine.isInstalled ? "Zainstalowany" : "Niezainstalowany")
                     .font(.caption).foregroundStyle(.secondary)
+                if isInstalling, let progress {
+                    ProgressView(value: progress)
+                        .progressViewStyle(.linear)
+                        .frame(width: 180)
+                }
             }
             Spacer()
             if isInstalling {
@@ -67,7 +105,7 @@ struct EngineRow: View {
                 if !isDefault {
                     Button("Ustaw domyślny", action: onSetDefault)
                 }
-                if engine.id != .appleSpeechPL {   // Apple is system-provided, can't uninstall
+                if engine.id != .appleSpeechPL {
                     Button("Odinstaluj", role: .destructive, action: onUninstall)
                 }
             } else {
