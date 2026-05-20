@@ -5,7 +5,6 @@ final class MenuBarTests: XCTestCase {
     @MainActor
     func test_menuBarController_holdsStatusItem() {
         let controller = MenuBarController()
-        XCTAssertNotNil(controller.statusItem)
         XCTAssertEqual(controller.statusItem.button?.image?.isTemplate, true)
     }
 

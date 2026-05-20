@@ -2,7 +2,7 @@ import AppKit
 
 @MainActor
 final class MenuBarController {
-    let statusItem: NSStatusItem
+    private(set) var statusItem: NSStatusItem
 
     init() {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
