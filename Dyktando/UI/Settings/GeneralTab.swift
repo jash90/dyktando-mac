@@ -7,16 +7,26 @@ struct GeneralTab: View {
     var body: some View {
         Form {
             Section {
-                Toggle("Pokaż HUD przy kursorze", isOn: $prefs.hudEnabled)
+                Toggle("Pokaż pływający HUD", isOn: hudEnabledBinding)
                 Toggle("Uruchamiaj przy starcie systemu", isOn: launchAtLoginBinding)
             } footer: {
-                Text("HUD pokazuje stan dyktowania (nasłuchuję / transkrybuję / wynik) tuż obok kursora.")
+                Text("HUD to pływająca pigułka pokazująca stan dyktowania. Przeciągnij ją w wybrane miejsce — pozycja zapamiętuje się między uruchomieniami.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
         }
         .formStyle(.grouped)
         .padding(8)
+    }
+
+    private var hudEnabledBinding: Binding<Bool> {
+        Binding(
+            get: { prefs.hudEnabled },
+            set: { newValue in
+                prefs.hudEnabled = newValue
+                AppDelegate.shared?.setHUDVisible(newValue)
+            }
+        )
     }
 
     private var launchAtLoginBinding: Binding<Bool> {
@@ -31,7 +41,6 @@ struct GeneralTab: View {
                     }
                     prefs.launchAtLogin = newValue
                 } catch {
-                    // Revert on failure; surface error in console for now.
                     print("Failed to update launch-at-login: \(error)")
                     prefs.launchAtLogin = !newValue
                 }

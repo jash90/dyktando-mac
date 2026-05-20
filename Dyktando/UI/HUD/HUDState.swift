@@ -28,9 +28,10 @@ final class HUDState: ObservableObject {
         autoIdleTask?.cancel()
         phase = .preview(preview)
         autoIdleTask = Task { [weak self] in
-            try? await Task.sleep(for: .milliseconds(800))
+            try? await Task.sleep(for: .milliseconds(2200))
             guard !Task.isCancelled, let self else { return }
             self.phase = .idle
+            self.level = 0
         }
     }
 

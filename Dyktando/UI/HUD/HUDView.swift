@@ -10,16 +10,41 @@ struct HUDView: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
-        .background(.thinMaterial, in: Capsule())
+        .background(background, in: Capsule())
+        .overlay(
+            Capsule().stroke(.white.opacity(0.08), lineWidth: 0.5)
+        )
+        .opacity(opacity)
         .fixedSize()
+        .animation(.easeInOut(duration: 0.18), value: state.phase)
+    }
+
+    private var background: AnyShapeStyle {
+        switch state.phase {
+        case .idle:         return AnyShapeStyle(.ultraThinMaterial)
+        case .listening:    return AnyShapeStyle(.thinMaterial)
+        case .transcribing: return AnyShapeStyle(.thinMaterial)
+        case .preview:      return AnyShapeStyle(.thinMaterial)
+        }
+    }
+
+    private var opacity: Double {
+        switch state.phase {
+        case .idle: return 0.75
+        default:    return 1.0
+        }
     }
 
     @ViewBuilder private var icon: some View {
         switch state.phase {
         case .idle:
-            EmptyView()
+            Image(systemName: "mic.fill")
+                .foregroundStyle(.secondary)
+                .imageScale(.small)
         case .listening:
             Image(systemName: "waveform")
+                .foregroundStyle(.red)
+                .symbolEffect(.variableColor.iterative.dimInactiveLayers, isActive: true)
         case .transcribing:
             ProgressView().controlSize(.small)
         case .preview:
@@ -31,7 +56,10 @@ struct HUDView: View {
     @ViewBuilder private var content: some View {
         switch state.phase {
         case .idle:
-            EmptyView()
+            Text("F5")
+                .font(.system(size: 11, weight: .medium, design: .rounded))
+                .foregroundStyle(.secondary)
+                .tracking(0.5)
         case .listening:
             LevelBar(level: state.level).frame(width: 80, height: 12)
         case .transcribing:

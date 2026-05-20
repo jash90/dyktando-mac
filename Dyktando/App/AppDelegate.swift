@@ -25,7 +25,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         hotkeys = HotkeyMonitor { [weak self] event in
             self?.handle(event)
         }
+        if prefs.hudEnabled {
+            hud.show()
+        }
         showOnboardingIfNeeded()
+    }
+
+    /// Public hook for Settings → General to flip HUD visibility live.
+    func setHUDVisible(_ visible: Bool) {
+        hud.setVisible(visible)
     }
 
     @objc func openSettings() {
@@ -72,7 +80,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             pendingCaptureKind = kind
             do {
                 try audio.start()
-                hud.show(near: NSEvent.mouseLocation)
+                if prefs.hudEnabled { hud.show() }
                 hud.state.beginListening()
             } catch {
                 let ns = error as NSError
