@@ -44,3 +44,17 @@ targets:
       base:
         BUNDLE_LOADER: "$(TEST_HOST)"
         TEST_HOST: "$(BUILT_PRODUCTS_DIR)/Dyktando.app/Contents/MacOS/Dyktando"
+        GENERATE_INFOPLIST_FILE: YES
+
+schemes:
+  Dyktando:
+    build:
+      targets:
+        Dyktando: all
+        DyktandoTests: [test]
+    test:
+      targets: [DyktandoTests]
+    run:
+      config: Debug
+    archive:
+      config: Release

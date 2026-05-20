@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master, feature/**]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install xcodegen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        run: xcodegen generate
+
+      - name: Show Xcode version
+        run: xcodebuild -version
+
+      - name: Build (Debug)
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -project Dyktando.xcodeproj \
+            -scheme Dyktando \
+            -configuration Debug \
+            -destination 'platform=macOS' \
+            -derivedDataPath build \
+            build | tail -50
+
+      - name: Test
+        run: |
+          set -o pipefail
+          xcodebuild test \
+            -project Dyktando.xcodeproj \
+            -scheme Dyktando \
+            -destination 'platform=macOS' \
+            -derivedDataPath build | tail -100
