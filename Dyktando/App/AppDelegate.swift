@@ -7,7 +7,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let audio = AudioCapture()
     let hud = HUDController()
     private let permissions = PermissionsService()
-    private let engine: TranscriptionEngine = AppleSpeechEngine()
+    private let registry = EngineRegistry()
+    private let prefs = Preferences.shared
     private var onboardingWindow: OnboardingWindowController?
 
     private static let onboardingKey = "didCompleteOnboarding"
@@ -75,7 +76,7 @@ extension AppDelegate: AudioCaptureDelegate {
         Task { [weak self] in
             guard let self else { return }
             do {
-                let engine = await MainActor.run { self.engine }
+                let engine = await MainActor.run { self.registry.active(prefs: self.prefs) }
                 let result = try await engine.transcribe(
                     samples: samples,
                     sampleRate: sampleRate,
