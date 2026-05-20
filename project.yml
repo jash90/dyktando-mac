@@ -3,6 +3,9 @@ packages:
   KeyboardShortcuts:
     url: https://github.com/sindresorhus/KeyboardShortcuts
     from: "2.0.0"
+  WhisperKit:
+    url: https://github.com/argmaxinc/WhisperKit
+    from: "0.9.0"
 options:
   bundleIdPrefix: com.bartekzimny
   deploymentTarget:
@@ -35,6 +38,7 @@ targets:
         NSSpeechRecognitionUsageDescription: "Dyktando uses speech recognition (on-device) to transcribe your voice."
     dependencies:
       - package: KeyboardShortcuts
+      - package: WhisperKit
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.bartekzimny.dyktando
