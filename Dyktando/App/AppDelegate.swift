@@ -114,7 +114,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             break
         case .openSettings:
             SettingsWindowController.shared.show()
+        case .openCommands:
+            CommandsWindowController.shared.show()
         }
+    }
+
+    @objc func openCommands() {
+        CommandsWindowController.shared.show()
     }
 }
 
@@ -156,9 +162,19 @@ extension AppDelegate: AudioCaptureDelegate {
                         sampleRate: sampleRate,
                         mode: mode)
                     await MainActor.run {
-                        let injector = self.currentInjector()
                         let pipeline = PostprocessPipeline(mode: self.currentLanguageMode)
                         let polished = pipeline.apply(result.text)
+
+                        // Voice command match takes precedence over text insertion.
+                        if let cmd = CommandStore.shared.match(polished) {
+                            self.hud.state.finish(preview: "▶ \(cmd.name.isEmpty ? cmd.trigger : cmd.name)")
+                            Task.detached(priority: .userInitiated) {
+                                await CommandRunner().run(cmd)
+                            }
+                            return
+                        }
+
+                        let injector = self.currentInjector()
                         injector.insert(polished)
                         let preview = polished.isEmpty ? "(brak tekstu)" : polished
                         self.hud.state.finish(preview: self.annotate(preview, mode: injector.mode))

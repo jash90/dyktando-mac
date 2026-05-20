@@ -14,6 +14,13 @@ final class MenuBarController {
 
     private func makeMenu() -> NSMenu {
         let menu = NSMenu()
+        let commands = NSMenuItem(title: "Akcje…",
+                                  action: #selector(AppDelegate.openCommands),
+                                  keyEquivalent: "a")
+        commands.keyEquivalentModifierMask = [.command, .option]
+        commands.target = NSApp.delegate
+        menu.addItem(commands)
+
         let settings = NSMenuItem(title: "Ustawienia…",
                                   action: #selector(AppDelegate.openSettings),
                                   keyEquivalent: ",")

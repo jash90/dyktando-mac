@@ -11,6 +11,7 @@ enum HotkeyEvent: Equatable {
     case stopCapture
     case switchModel
     case openSettings
+    case openCommands
 }
 
 @MainActor
@@ -46,6 +47,9 @@ final class HotkeyMonitor {
         }
         KeyboardShortcuts.onKeyDown(for: .openSettings) { [weak self] in
             self?.emit(.openSettings)
+        }
+        KeyboardShortcuts.onKeyDown(for: .openCommands) { [weak self] in
+            self?.emit(.openCommands)
         }
     }
 

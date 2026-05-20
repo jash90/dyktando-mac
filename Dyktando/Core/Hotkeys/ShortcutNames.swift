@@ -11,4 +11,6 @@ extension KeyboardShortcuts.Name {
                                      default: .init(.c, modifiers: [.control, .option]))
     static let openSettings = Self("openSettings",
                                    default: .init(.comma, modifiers: [.control, .option]))
+    static let openCommands = Self("openCommands",
+                                   default: .init(.a, modifiers: [.command, .option]))
 }
