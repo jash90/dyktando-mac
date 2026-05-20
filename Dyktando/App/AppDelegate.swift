@@ -63,8 +63,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 hud.show(near: NSEvent.mouseLocation)
                 hud.state.beginListening()
             } catch {
-                print("audio.start failed: \(error)")
+                let ns = error as NSError
+                let detail = "\(ns.domain) \(ns.code): \(ns.localizedDescription)"
+                print("audio.start failed: \(detail)")
                 hud.state.resetToIdle()
+                let alert = NSAlert()
+                alert.messageText = "Nie udało się uruchomić mikrofonu"
+                alert.informativeText = """
+                \(detail)
+
+                Najczęstsze przyczyny:
+                • Brak uprawnień do Mikrofonu — sprawdź Ustawienia systemowe → \
+                Prywatność i bezpieczeństwo → Mikrofon i włącz Dyktando.
+                • Inne urządzenie używa mikrofonu (np. spotkanie video).
+                • Brak urządzenia wejściowego — podłącz mikrofon lub wybierz w \
+                Ustawieniach systemowych → Dźwięk → Wejście.
+                """
+                alert.alertStyle = .warning
+                alert.addButton(withTitle: "Otwórz Ustawienia Prywatności")
+                alert.addButton(withTitle: "Zamknij")
+                if alert.runModal() == .alertFirstButtonReturn,
+                   let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone") {
+                    NSWorkspace.shared.open(url)
+                }
             }
         case .stopCapture:
             audio.stop()
