@@ -5,11 +5,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var menuBar: MenuBarController?
     private var hotkeys: HotkeyMonitor?
     private let audio = AudioCapture()
+    let hud = HUDController()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         menuBar = MenuBarController()
         audio.delegate = self
-
         hotkeys = HotkeyMonitor { [weak self] event in
             self?.handle(event)
         }
@@ -17,19 +17,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func handle(_ event: HotkeyEvent) {
         switch event {
-        case .startCapture(_):
-            try? audio.start()
+        case .startCapture:
+            hud.show(near: NSEvent.mouseLocation)
+            hud.state.beginListening()
+            do { try audio.start() }
+            catch { print("audio.start failed: \(error)") }
         case .stopCapture:
             audio.stop()
+            hud.state.beginTranscribing()
         case .switchModel, .openSettings:
-            break  // wired in later milestones
+            break
         }
     }
 }
 
 extension AppDelegate: AudioCaptureDelegate {
     nonisolated func audioCapture(_ capture: AudioCapture, level rms: Float) {
-        // M1.4 will surface this to the HUD.
+        Task { @MainActor [weak self] in
+            self?.hud.state.level = rms
+        }
     }
 
     nonisolated func audioCapture(_ capture: AudioCapture,
@@ -43,6 +49,10 @@ extension AppDelegate: AudioCaptureDelegate {
             } catch {
                 print("WAV write failed: \(error)")
             }
+        }
+        Task { @MainActor [weak self] in
+            self?.hud.state.finish(preview: "(audio captured)")
+            // HUD self-hides via finish(...) → .idle after 800ms; no explicit hide needed.
         }
     }
 }
