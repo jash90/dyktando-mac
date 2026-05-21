@@ -1,17 +1,10 @@
 import Foundation
 import KeyboardShortcuts
 
-enum CaptureKind: Equatable {
-    case singleEngine
-    case comparison
-}
-
 enum HotkeyEvent: Equatable {
-    case startCapture(CaptureKind)
+    case startCapture
     case stopCapture
-    case switchModel
     case openSettings
-    case openCommands
 }
 
 @MainActor
@@ -27,36 +20,24 @@ final class HotkeyMonitor {
     private func bind() {
         KeyboardShortcuts.onKeyDown(for: .pushToTalk) { [weak self] in
             NSLog("[Hotkey] PTT keyDown")
-            self?.start(.singleEngine)
+            self?.start()
         }
         KeyboardShortcuts.onKeyUp(for: .pushToTalk) { [weak self] in
             NSLog("[Hotkey] PTT keyUp")
             self?.stop()
         }
         KeyboardShortcuts.onKeyDown(for: .toggleDictation) { [weak self] in
-            self?.toggle(.singleEngine)
-        }
-        KeyboardShortcuts.onKeyDown(for: .comparisonMode) { [weak self] in
-            self?.start(.comparison)
-        }
-        KeyboardShortcuts.onKeyUp(for: .comparisonMode) { [weak self] in
-            self?.stop()
-        }
-        KeyboardShortcuts.onKeyDown(for: .switchModel) { [weak self] in
-            self?.emit(.switchModel)
+            self?.toggle()
         }
         KeyboardShortcuts.onKeyDown(for: .openSettings) { [weak self] in
             self?.emit(.openSettings)
         }
-        KeyboardShortcuts.onKeyDown(for: .openCommands) { [weak self] in
-            self?.emit(.openCommands)
-        }
     }
 
-    private func start(_ kind: CaptureKind) {
+    private func start() {
         guard !isCapturing else { return }
         isCapturing = true
-        emit(.startCapture(kind))
+        emit(.startCapture)
     }
 
     private func stop() {
@@ -65,18 +46,15 @@ final class HotkeyMonitor {
         emit(.stopCapture)
     }
 
-    private func toggle(_ kind: CaptureKind) {
-        isCapturing ? stop() : start(kind)
+    private func toggle() {
+        isCapturing ? stop() : start()
     }
 
     // MARK: - Testing seams
     #if DEBUG
-    func simulatePushToTalkDown() { start(.singleEngine) }
+    func simulatePushToTalkDown() { start() }
     func simulatePushToTalkUp() { stop() }
-    func simulateToggleTap() { toggle(.singleEngine) }
-    func simulateComparisonModeDown() { start(.comparison) }
-    func simulateComparisonModeUp() { stop() }
-    func simulateSwitchModelTap() { emit(.switchModel) }
+    func simulateToggleTap() { toggle() }
     func simulateOpenSettingsTap() { emit(.openSettings) }
     #endif
 }

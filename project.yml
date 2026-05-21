@@ -37,10 +37,6 @@ targets:
         CFBundleIconName: AppIcon
         NSMicrophoneUsageDescription: "Dyktando uses your microphone to transcribe speech into text. Audio never leaves your Mac."
         NSSpeechRecognitionUsageDescription: "Dyktando uses speech recognition (on-device) to transcribe your voice."
-        CFBundleURLTypes:
-          - CFBundleURLName: com.bartekzimny.dyktando.spotify
-            CFBundleURLSchemes:
-              - dyktando
     dependencies:
       - package: KeyboardShortcuts
       - package: FluidAudio

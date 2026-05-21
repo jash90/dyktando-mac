@@ -7,20 +7,14 @@ final class EngineRegistry: ObservableObject {
     @Published private(set) var engines: [EngineID: TranscriptionEngine] = [:]
 
     init() {
-        engines[.appleSpeechPL] = AppleSpeechEngine()
         engines[.parakeetTDTv3] = ParakeetEngine()
     }
 
-    /// Returns the engine the user has chosen as default, falling back to
-    /// Apple Speech (always installed) if the chosen one isn't available.
+    /// Returns the user's transcription engine. With only Parakeet wired up,
+    /// the `prefs` argument is kept for source-compatibility with the rest
+    /// of the app but doesn't change the outcome.
     func active(prefs: Preferences) -> TranscriptionEngine {
-        if let id = EngineID(rawValue: prefs.defaultEngineID),
-           let engine = engines[id],
-           engine.isInstalled {
-            return engine
-        }
-        // Apple Speech is the system-provided fallback; always present.
-        return engines[.appleSpeechPL]!
+        return engines[.parakeetTDTv3]!
     }
 
     func engine(for id: EngineID) -> TranscriptionEngine? {

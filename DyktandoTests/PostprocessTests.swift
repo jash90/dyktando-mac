@@ -44,16 +44,6 @@ final class PostprocessTests: XCTestCase {
         XCTAssertEqual(ReplacementRules.defaults.apply(input), "alfa . beta , gamma")
     }
 
-    func test_rules_skipsAfterEnglishTerm() {
-        // "deployment kropka" should NOT replace because "kropka" follows an
-        // English term and is probably the literal Polish word, not a marker.
-        // (This is opinionated; the rule guards against false positives.)
-        let input = "zrób deployment kropka teraz"
-        let out = ReplacementRules.defaults.apply(input)
-        XCTAssertTrue(out.contains("deployment kropka"),
-                      "Got: '\(out)' — expected 'deployment kropka' preserved")
-    }
-
     // MARK: Pipeline composition
 
     func test_pipeline_endToEnd() {

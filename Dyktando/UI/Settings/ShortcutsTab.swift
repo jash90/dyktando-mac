@@ -7,14 +7,11 @@ struct ShortcutsTab: View {
             Section("Skróty") {
                 KeyboardShortcuts.Recorder("Push-to-talk", name: .pushToTalk)
                 KeyboardShortcuts.Recorder("Przełącz dyktowanie", name: .toggleDictation)
-                KeyboardShortcuts.Recorder("Zmień model", name: .switchModel)
-                KeyboardShortcuts.Recorder("Tryb porównania", name: .comparisonMode)
                 KeyboardShortcuts.Recorder("Otwórz Ustawienia", name: .openSettings)
             }
             Section {
                 Button("Przywróć domyślne") {
-                    KeyboardShortcuts.reset(.pushToTalk, .toggleDictation, .switchModel,
-                                            .comparisonMode, .openSettings)
+                    KeyboardShortcuts.reset(.pushToTalk, .toggleDictation, .openSettings)
                 }
             }
         }

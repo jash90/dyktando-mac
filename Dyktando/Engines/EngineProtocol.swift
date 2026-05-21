@@ -3,7 +3,6 @@ import Foundation
 
 enum EngineID: String, Hashable, Codable, CaseIterable, Sendable {
     case parakeetTDTv3 = "parakeet-tdt-v3"
-    case appleSpeechPL = "apple-speech-pl"
 }
 
 struct TranscriptionResult: Equatable, Sendable {

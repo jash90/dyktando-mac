@@ -102,12 +102,7 @@ struct EngineRow: View {
             if isInstalling {
                 ProgressView().controlSize(.small)
             } else if engine.isInstalled {
-                if !isDefault {
-                    Button("Ustaw domyślny", action: onSetDefault)
-                }
-                if engine.id != .appleSpeechPL {
-                    Button("Odinstaluj", role: .destructive, action: onUninstall)
-                }
+                Button("Odinstaluj", role: .destructive, action: onUninstall)
             } else {
                 Button("Zainstaluj", action: onInstall)
             }

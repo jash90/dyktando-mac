@@ -7,8 +7,6 @@ final class ShortcutNamesTests: XCTestCase {
         // Just touch all of them; if any aren't declared this won't compile.
         _ = KeyboardShortcuts.Name.pushToTalk
         _ = KeyboardShortcuts.Name.toggleDictation
-        _ = KeyboardShortcuts.Name.switchModel
-        _ = KeyboardShortcuts.Name.comparisonMode
         _ = KeyboardShortcuts.Name.openSettings
     }
 
