@@ -28,14 +28,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if prefs.hudEnabled {
             hud.show()
         }
-        // Warm up the user's default engine in the background so the first
-        // dictation isn't blocked by a 30 s+ CoreML/ANE compile.
-        Task.detached(priority: .utility) { [registry, prefs] in
-            let active = await MainActor.run { registry.active(prefs: prefs) }
-            if let whisper = active as? WhisperKitEngine {
-                await whisper.prewarm()
-            }
-        }
         showOnboardingIfNeeded()
     }
 

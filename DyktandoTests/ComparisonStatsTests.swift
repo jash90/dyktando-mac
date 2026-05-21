@@ -13,7 +13,7 @@ final class ComparisonStatsTests: XCTestCase {
             await stats.record(chosen: .parakeetTDTv3, language: Locale(identifier: "pl-PL"))
         }
         for _ in 0..<2 {
-            await stats.record(chosen: .whisperLargeV3, language: Locale(identifier: "pl-PL"))
+            await stats.record(chosen: .appleSpeechPL, language: Locale(identifier: "pl-PL"))
         }
         let nudge = await stats.nudgeIfApplicable(for: Locale(identifier: "pl-PL"))
         XCTAssertEqual(nudge?.winner, .parakeetTDTv3)
@@ -35,7 +35,7 @@ final class ComparisonStatsTests: XCTestCase {
             await stats.record(chosen: .parakeetTDTv3, language: Locale(identifier: "pl-PL"))
         }
         for _ in 0..<4 {
-            await stats.record(chosen: .whisperLargeV3, language: Locale(identifier: "pl-PL"))
+            await stats.record(chosen: .appleSpeechPL, language: Locale(identifier: "pl-PL"))
         }
         let nudge = await stats.nudgeIfApplicable(for: Locale(identifier: "pl-PL"))
         XCTAssertNil(nudge)

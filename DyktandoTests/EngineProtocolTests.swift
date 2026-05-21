@@ -2,18 +2,14 @@ import XCTest
 @testable import Dyktando
 
 final class EngineProtocolTests: XCTestCase {
-    func test_engineID_allCases_hasFour() {
-        XCTAssertEqual(EngineID.allCases.count, 4)
+    func test_engineID_allCases_hasTwo() {
+        XCTAssertEqual(EngineID.allCases.count, 2)
         XCTAssertTrue(EngineID.allCases.contains(.parakeetTDTv3))
-        XCTAssertTrue(EngineID.allCases.contains(.whisperLargeV3Turbo))
-        XCTAssertTrue(EngineID.allCases.contains(.whisperLargeV3))
         XCTAssertTrue(EngineID.allCases.contains(.appleSpeechPL))
     }
 
     func test_engineID_rawValues() {
         XCTAssertEqual(EngineID.parakeetTDTv3.rawValue, "parakeet-tdt-v3")
-        XCTAssertEqual(EngineID.whisperLargeV3Turbo.rawValue, "whisper-large-v3-turbo")
-        XCTAssertEqual(EngineID.whisperLargeV3.rawValue, "whisper-large-v3")
         XCTAssertEqual(EngineID.appleSpeechPL.rawValue, "apple-speech-pl")
     }
 

@@ -8,8 +8,6 @@ final class EngineRegistry: ObservableObject {
 
     init() {
         engines[.appleSpeechPL] = AppleSpeechEngine()
-        engines[.whisperLargeV3Turbo] = WhisperKitEngine(variant: .largeV3Turbo)
-        engines[.whisperLargeV3] = WhisperKitEngine(variant: .largeV3)
         engines[.parakeetTDTv3] = ParakeetEngine()
     }
 

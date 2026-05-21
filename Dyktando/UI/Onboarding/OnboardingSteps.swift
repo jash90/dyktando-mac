@@ -78,7 +78,7 @@ struct PickModelStep: View {
         VStack(spacing: 16) {
             Image(systemName: "cpu").font(.system(size: 48))
             Text("Wybierz pierwszy model").font(.title.bold())
-            Text("Apple Speech (pl-PL) działa od razu, bez pobierania. Whisper i Parakeet doinstalujesz później w Ustawieniach → Modele.")
+            Text("Apple Speech (pl-PL) działa od razu, bez pobierania. Parakeet doinstalujesz później w Ustawieniach → Modele.")
                 .multilineTextAlignment(.center)
                 .foregroundStyle(.secondary)
             Button("Użyj Apple Speech na początek", action: next).keyboardShortcut(.return)

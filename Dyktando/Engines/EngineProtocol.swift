@@ -3,8 +3,6 @@ import Foundation
 
 enum EngineID: String, Hashable, Codable, CaseIterable, Sendable {
     case parakeetTDTv3 = "parakeet-tdt-v3"
-    case whisperLargeV3Turbo = "whisper-large-v3-turbo"
-    case whisperLargeV3 = "whisper-large-v3"
     case appleSpeechPL = "apple-speech-pl"
 }
 

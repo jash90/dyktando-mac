@@ -3,26 +3,24 @@ import XCTest
 
 @MainActor
 final class EngineRegistryTests: XCTestCase {
-    func test_registry_containsAllFourEngines() {
+    func test_registry_containsBothEngines() {
         let registry = EngineRegistry()
         XCTAssertNotNil(registry.engine(for: .appleSpeechPL))
-        XCTAssertNotNil(registry.engine(for: .whisperLargeV3Turbo))
-        XCTAssertNotNil(registry.engine(for: .whisperLargeV3))
         XCTAssertNotNil(registry.engine(for: .parakeetTDTv3))
     }
 
-    func test_active_fallsBackToAppleWhenWhisperNotInstalled() {
+    func test_active_returnsParakeetWhenInstalled() {
         let registry = EngineRegistry()
         let prefs = Preferences.shared
-        prefs.defaultEngineID = EngineID.whisperLargeV3Turbo.rawValue
-        defer { prefs.defaultEngineID = EngineID.appleSpeechPL.rawValue }
+        prefs.defaultEngineID = EngineID.parakeetTDTv3.rawValue
+        defer { prefs.defaultEngineID = EngineID.parakeetTDTv3.rawValue }
 
         let active = registry.active(prefs: prefs)
 
-        // Whisper isn't downloaded in CI / fresh install → fall back to Apple.
-        // If a developer has whisper cached locally, the test asserts on that path instead.
-        if registry.engine(for: .whisperLargeV3Turbo)?.isInstalled == true {
-            XCTAssertEqual(active.id, .whisperLargeV3Turbo)
+        // Parakeet may not be downloaded in CI; either it's active, or we
+        // fall back to Apple Speech.
+        if registry.engine(for: .parakeetTDTv3)?.isInstalled == true {
+            XCTAssertEqual(active.id, .parakeetTDTv3)
         } else {
             XCTAssertEqual(active.id, .appleSpeechPL)
         }
