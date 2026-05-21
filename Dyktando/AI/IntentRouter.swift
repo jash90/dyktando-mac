@@ -67,6 +67,13 @@ struct IntentRouter {
         - Jeśli się wahasz, zwróć {"skill": null} — lepiej wstawić jako tekst.
         - Nazwy własne (artyści, aplikacje, miasta) zostaw w oryginale.
         - Krótkie zwroty typu "tak", "ok", "dziękuję" → {"skill": null}.
+        - Dla `discord_send`: usuń słowa rozpoczynające komendę ("napisz do …", "powiedz …", "wyślij do …") z pola `message`. \
+          Zostaw TYLKO właściwą treść do wysłania.
+
+        Przykłady ekstrakcji `message`:
+          "napisz do Claude zrób mi taska na jutro" → message: "zrób mi taska na jutro"
+          "powiedz Claudowi że jutro jest deadline" → message: "że jutro jest deadline"
+          "wyślij do Claude listę zakupów: chleb, masło, ser" → message: "listę zakupów: chleb, masło, ser"
         """
     }
 }

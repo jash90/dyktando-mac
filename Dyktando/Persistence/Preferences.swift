@@ -26,5 +26,8 @@ final class Preferences: ObservableObject {
     @AppStorage("ollamaModel")
     var ollamaModel: String = "gemma4:latest"
 
+    @AppStorage("discordWebhookURL")
+    var discordWebhookURL: String = ""
+
     private init() {}
 }

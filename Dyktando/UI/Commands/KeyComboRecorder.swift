@@ -44,10 +44,9 @@ struct KeyComboRecorder: View {
                 return nil
             }
             let mods = event.modifierFlags.intersection([.command, .option, .control, .shift])
-            // Require at least one modifier — sending a bare keystroke from
-            // a command is almost never what the user means and easy to mis-fire.
-            guard !mods.isEmpty else { return nil }
-
+            // Modifier-less keys are allowed so users can record ⏎, Tab, F-keys
+            // etc. for action chains that "press Enter inside Terminal" after
+            // typing a command.
             let label = Self.format(event: event, modifiers: mods)
             combo = KeyCombo(keyCode: event.keyCode,
                              modifiersRaw: mods.rawValue,

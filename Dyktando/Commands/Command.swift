@@ -25,32 +25,33 @@ struct Command: Identifiable, Codable, Equatable {
 
 enum CommandAction: Codable, Equatable, Identifiable {
     case pressKeys(KeyCombo)
+    case typeText(String)
     case openTarget(OpenTarget)
     case wait(milliseconds: Int)
 
     /// Stable per-action id so SwiftUI lists can track moves and edits.
-    /// We synthesize one from the case contents — every action stored on disk
-    /// also carries a `uuid` discriminator under the hood (see Codable below).
     var id: UUID { storageID }
 
     // MARK: - Codable
 
     private enum CodingKeys: String, CodingKey {
-        case kind, uuid, keyCombo, target, milliseconds
+        case kind, uuid, keyCombo, target, milliseconds, text
     }
-    private enum Kind: String, Codable { case pressKeys, openTarget, wait }
+    private enum Kind: String, Codable { case pressKeys, typeText, openTarget, wait }
 
     private var storageID: UUID {
-        // Identity is encoded into the action so SwiftUI ForEach stays stable
-        // across edits. New cases generate a fresh UUID at init time.
         switch self {
-        case .pressKeys(let k): return k.uuid
+        case .pressKeys(let k):  return k.uuid
         case .openTarget(let t): return t.uuid
-        case .wait(_): return _waitID
+        case .typeText(_):       return _staticID(for: "type")
+        case .wait(_):           return _staticID(for: "wait")
         }
     }
-    private var _waitID: UUID {
-        UUID(uuidString: "00000000-0000-0000-0000-000000000000") ?? UUID()
+    private func _staticID(for tag: String) -> UUID {
+        // Stable per-kind UUID — multiple actions of the same kind end up
+        // sharing an id; SwiftUI's enumerated() workaround in CommandsView
+        // handles that.
+        UUID(uuidString: "00000000-0000-0000-0000-\(tag.padding(toLength: 12, withPad: "0", startingAt: 0))") ?? UUID()
     }
 
     func encode(to encoder: Encoder) throws {
@@ -59,12 +60,14 @@ enum CommandAction: Codable, Equatable, Identifiable {
         case .pressKeys(let k):
             try c.encode(Kind.pressKeys, forKey: .kind)
             try c.encode(k, forKey: .keyCombo)
+        case .typeText(let s):
+            try c.encode(Kind.typeText, forKey: .kind)
+            try c.encode(s, forKey: .text)
         case .openTarget(let t):
             try c.encode(Kind.openTarget, forKey: .kind)
             try c.encode(t, forKey: .target)
         case .wait(let ms):
             try c.encode(Kind.wait, forKey: .kind)
-            try c.encode(UUID(), forKey: .uuid)
             try c.encode(ms, forKey: .milliseconds)
         }
     }
@@ -74,6 +77,8 @@ enum CommandAction: Codable, Equatable, Identifiable {
         switch try c.decode(Kind.self, forKey: .kind) {
         case .pressKeys:
             self = .pressKeys(try c.decode(KeyCombo.self, forKey: .keyCombo))
+        case .typeText:
+            self = .typeText(try c.decode(String.self, forKey: .text))
         case .openTarget:
             self = .openTarget(try c.decode(OpenTarget.self, forKey: .target))
         case .wait:

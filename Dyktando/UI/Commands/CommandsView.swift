@@ -140,6 +140,7 @@ private struct CommandEditor: View {
                 Spacer()
                 Menu {
                     Button("Naciśnij skrót")    { append(.pressKeys(.init(keyCode: 9, modifiersRaw: NSEvent.ModifierFlags.command.rawValue, label: "⌘V"))) }
+                    Button("Wpisz tekst")       { append(.typeText("")) }
                     Button("Otwórz aplikację")  { append(.openTarget(.bundleID("com.apple.Safari"))) }
                     Button("Otwórz URL")        { append(.openTarget(.url(URL(string: "https://example.com")!))) }
                     Button("Pauza")             { append(.wait(milliseconds: 200)) }
@@ -209,6 +210,7 @@ private struct ActionRow: View {
     private var iconName: String {
         switch action {
         case .pressKeys:  return "keyboard"
+        case .typeText:   return "text.cursor"
         case .openTarget: return "app.badge"
         case .wait:       return "hourglass"
         }
@@ -222,6 +224,14 @@ private struct ActionRow: View {
                 Text("Naciśnij")
                 KeyComboRecorder(combo: keyComboBinding(initial: combo))
             }
+        case .typeText(let text):
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Wpisz")
+                TextField("tekst do wpisania", text: typeTextBinding(initial: text), axis: .vertical)
+                    .textFieldStyle(.roundedBorder)
+                    .lineLimit(1...4)
+                    .font(.system(.body, design: .monospaced))
+            }
         case .openTarget(let target):
             OpenTargetEditor(target: openTargetBinding(initial: target))
         case .wait(let ms):
@@ -232,6 +242,16 @@ private struct ActionRow: View {
                 }
             }
         }
+    }
+
+    private func typeTextBinding(initial: String) -> Binding<String> {
+        Binding(
+            get: {
+                if case .typeText(let s) = action { return s }
+                return initial
+            },
+            set: { action = .typeText($0) }
+        )
     }
 
     // MARK: - Action binding helpers

@@ -9,6 +9,8 @@ enum SkillRegistry {
         WebSearchSkill(),
         OpenURLSkill(),
         OpenAppSkill(),
+        ClaudeCodeSkill(),
+        DiscordSendSkill(),
         SystemSkill(),
     ]
 
