@@ -18,7 +18,17 @@ struct ModelsTab: View {
                     progress: installProgress[id],
                     onInstall: { install(engine) },
                     onUninstall: { uninstall(engine) },
-                    onSetDefault: { prefs.defaultEngineID = id.rawValue }
+                    onSetDefault: {
+                        prefs.defaultEngineID = id.rawValue
+                        // Kick off prewarm in the background so the user's
+                        // first F5 with the new model isn't blocked by a
+                        // multi-second CoreML/ANE compile.
+                        if let whisper = engine as? WhisperKitEngine {
+                            Task.detached(priority: .utility) {
+                                await whisper.prewarm()
+                            }
+                        }
+                    }
                 )
                 .id("\(id.rawValue)-\(registryTick)")
             }
