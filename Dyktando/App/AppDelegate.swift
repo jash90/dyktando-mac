@@ -28,7 +28,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if prefs.hudEnabled {
             hud.show()
         }
+        // Catch Spotify's OAuth redirect (dyktando://spotify-callback?code=…).
+        NSAppleEventManager.shared().setEventHandler(
+            self,
+            andSelector: #selector(handleURLEvent(_:replyEvent:)),
+            forEventClass: AEEventClass(kInternetEventClass),
+            andEventID: AEEventID(kAEGetURL)
+        )
         showOnboardingIfNeeded()
+    }
+
+    @objc func handleURLEvent(_ event: NSAppleEventDescriptor,
+                              replyEvent: NSAppleEventDescriptor) {
+        guard let urlString = event.paramDescriptor(forKeyword: keyDirectObject)?.stringValue,
+              let url = URL(string: urlString) else { return }
+        if url.scheme == "dyktando", url.host == "spotify-callback" {
+            let clientID = prefs.spotifyClientID
+            Task { @MainActor in
+                await SpotifyOAuth.shared.handleCallback(url: url, clientID: clientID)
+            }
+        }
     }
 
     /// Public hook for Settings → General to flip HUD visibility live.

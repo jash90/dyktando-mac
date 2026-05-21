@@ -29,5 +29,8 @@ final class Preferences: ObservableObject {
     @AppStorage("discordWebhookURL")
     var discordWebhookURL: String = ""
 
+    @AppStorage("spotifyClientID")
+    var spotifyClientID: String = ""
+
     private init() {}
 }

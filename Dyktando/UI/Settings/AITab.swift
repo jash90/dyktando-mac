@@ -11,6 +11,8 @@ struct AITab: View {
     @State private var discordResult: String?
     @State private var discordOK: Bool?
 
+    @StateObject private var spotifyAuth = SpotifyOAuth.shared
+
     var body: some View {
         Form {
             Section {
@@ -70,6 +72,49 @@ struct AITab: View {
                     }
                 }
                 Text("Stwórz webhook w Discordzie: kanał → Edit → Integrations → Webhooks → New. Skopiuj URL i wklej tutaj. Frazy w stylu \"napisz do Claude X\" / \"powiedz Claudowi X\" trafią jako wiadomość.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Section("Spotify (odtwarzanie albumów głosem)") {
+                HStack {
+                    Text("Client ID").frame(width: 80, alignment: .leading)
+                    TextField("z developer.spotify.com → Create app", text: $prefs.spotifyClientID)
+                        .textFieldStyle(.roundedBorder)
+                        .autocorrectionDisabled(true)
+                }
+                HStack(alignment: .firstTextBaseline) {
+                    Image(systemName: spotifyAuth.isAuthenticated
+                          ? "checkmark.circle.fill"
+                          : "person.crop.circle.badge.questionmark")
+                        .foregroundStyle(spotifyAuth.isAuthenticated ? .green : .secondary)
+                    VStack(alignment: .leading) {
+                        if spotifyAuth.isAuthenticated {
+                            Text("Połączono")
+                                .font(.body)
+                            if let name = spotifyAuth.displayName {
+                                Text(name).font(.caption).foregroundStyle(.secondary)
+                            }
+                        } else {
+                            Text("Niepołączono")
+                                .font(.body)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    Spacer()
+                    if spotifyAuth.isAuthenticated {
+                        Button("Rozłącz") { spotifyAuth.logout() }
+                    } else {
+                        Button("Połącz ze Spotify") {
+                            spotifyAuth.startLogin(clientID: prefs.spotifyClientID)
+                        }
+                        .disabled(prefs.spotifyClientID.isEmpty)
+                    }
+                }
+                if let err = spotifyAuth.lastError {
+                    Text(err).font(.caption).foregroundStyle(.red).textSelection(.enabled)
+                }
+                Text("Setup: developer.spotify.com/dashboard → Create app → Redirect URI: `dyktando://spotify-callback`, zaznacz Web API. Skopiuj Client ID i wklej powyżej. Odtwarzanie wymaga konta Premium.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
