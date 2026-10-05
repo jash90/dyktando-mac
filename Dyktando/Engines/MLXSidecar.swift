@@ -73,10 +73,10 @@ actor MLXSidecar {
     func ensureEnvironment() async throws {
         // Kod serwera kopiujemy przy każdej zmianie (aktualizacja aplikacji), a `uv sync`
         // uruchamiamy tylko wtedy, gdy zmieniły się zależności (uv.lock).
-        if try syncSourceFiles() { stop() }  // działający serwer ma stary kod
+        if try syncSourceFiles() { terminateProcess() }  // działający serwer ma stary kod
         if Self.isEnvironmentReady { return }
         guard let uv = Self.findUV() else { throw SidecarError.uvMissing }
-        stop()
+        terminateProcess()
 
         let (status, output) = try await Self.run(uv, logURL: Self.root.appendingPathComponent("uv-sync.log"), arguments: [
             "sync", "--frozen", "--python", "3.11", "--project", Self.sourceDir.path,
@@ -151,10 +151,18 @@ actor MLXSidecar {
         throw SidecarError.serverDidNotStart(tail)
     }
 
+    /// Zatrzymanie z zewnątrz (zamknięcie aplikacji): proces + zapomnienie startu.
     func stop() {
+        terminateProcess()
+        startTask = nil
+    }
+
+    /// Tylko zabija proces. Używane w trakcie startu (ensureEnvironment) — nie może czyścić
+    /// `startTask`, bo to ten sam, wciąż trwający start; inaczej równoległe wywołania
+    /// odpaliłyby drugi serwer w czasie `uv sync`.
+    private func terminateProcess() {
         if let p = process, p.isRunning { p.terminate() }
         process = nil
-        startTask = nil
     }
 
     /// Nasz serwer = 200 + nasz token + znacznik usługi (obcy proces na porcie 7863 nie przejdzie).
