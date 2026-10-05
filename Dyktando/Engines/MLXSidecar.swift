@@ -35,6 +35,12 @@ actor MLXSidecar {
     }
 
     private var process: Process?
+    /// Wspólny start serwera — actor jest reentrant, więc bez tego dwa równoległe wywołania
+    /// (np. prewarm + dyktowanie) uruchomiłyby dwa procesy Pythona.
+    private var startTask: Task<Void, Error>?
+    /// Losowany przy każdym uruchomieniu aplikacji; serwer odrzuca żądania bez niego
+    /// (chroni przed stronami WWW wysyłającymi POST na 127.0.0.1).
+    private let token = UUID().uuidString + UUID().uuidString
 
     // MARK: - Ścieżki
 
@@ -72,7 +78,7 @@ actor MLXSidecar {
         guard let uv = Self.findUV() else { throw SidecarError.uvMissing }
         stop()
 
-        let (status, output) = try await Self.run(uv, arguments: [
+        let (status, output) = try await Self.run(uv, logURL: Self.root.appendingPathComponent("uv-sync.log"), arguments: [
             "sync", "--frozen", "--python", "3.11", "--project", Self.sourceDir.path,
         ], environment: ["UV_PROJECT_ENVIRONMENT": Self.root.appendingPathComponent("venv").path])
         guard status == 0 else { throw SidecarError.setupFailed(String(output.suffix(1500))) }
@@ -101,6 +107,22 @@ actor MLXSidecar {
     // MARK: - Serwer
 
     func ensureServer() async throws {
+        if let existing = startTask {
+            try await existing.value
+            if await health() { return }
+            startTask = nil  // serwer padł po starcie — uruchom ponownie
+        }
+        let task = Task { try await self.startServer() }
+        startTask = task
+        do {
+            try await task.value
+        } catch {
+            startTask = nil  // następna próba może spróbować od nowa
+            throw error
+        }
+    }
+
+    private func startServer() async throws {
         try await ensureEnvironment()
         if await health() { return }
         let script = Self.sourceDir.appendingPathComponent("stt_server.py")
@@ -115,6 +137,7 @@ actor MLXSidecar {
         p.arguments = [script.path, "--port", String(Self.port), "--parent-pid", String(getpid())]
         p.standardOutput = log
         p.standardError = log
+        p.environment = ProcessInfo.processInfo.environment.merging(["DYKTANDO_SIDECAR_TOKEN": token]) { $1 }
         try p.run()
         process = p
         NSLog("[MLXSidecar] started pid=%d", p.processIdentifier)
@@ -131,13 +154,18 @@ actor MLXSidecar {
     func stop() {
         if let p = process, p.isRunning { p.terminate() }
         process = nil
+        startTask = nil
     }
 
+    /// Nasz serwer = 200 + nasz token + znacznik usługi (obcy proces na porcie 7863 nie przejdzie).
     func health() async -> Bool {
         var req = URLRequest(url: Self.url("/health"))
         req.timeoutInterval = 1
-        guard let (_, resp) = try? await URLSession.shared.data(for: req) else { return false }
-        return (resp as? HTTPURLResponse)?.statusCode == 200
+        req.setValue(token, forHTTPHeaderField: "X-Dyktando-Token")
+        guard let (data, resp) = try? await URLSession.shared.data(for: req),
+              (resp as? HTTPURLResponse)?.statusCode == 200,
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return false }
+        return json["service"] as? String == "dyktando-sidecar"
     }
 
     /// Pobiera (pierwszy raz) i ładuje model do pamięci serwera.
@@ -171,6 +199,7 @@ actor MLXSidecar {
         req.httpMethod = "POST"
         req.timeoutInterval = timeout
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.setValue(token, forHTTPHeaderField: "X-Dyktando-Token")
         req.httpBody = try JSONSerialization.data(withJSONObject: body)
         let (data, resp) = try await URLSession.shared.data(for: req)
         let json = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] ?? [:]
@@ -180,20 +209,24 @@ actor MLXSidecar {
         return json
     }
 
-    private static func run(_ exe: URL, arguments: [String], environment: [String: String]) async throws -> (Int32, String) {
+    /// Uruchamia proces z wyjściem do pliku (nie do Pipe: Pipe czytany dopiero po zakończeniu
+    /// blokuje proces, gdy wypisze więcej niż bufor ~64 KB). Zwraca kod wyjścia i koniec logu.
+    private static func run(_ exe: URL, logURL: URL, arguments: [String],
+                            environment: [String: String]) async throws -> (Int32, String) {
+        FileManager.default.createFile(atPath: logURL.path, contents: nil)
+        let log = try FileHandle(forWritingTo: logURL)
         let p = Process()
         p.executableURL = exe
         p.arguments = arguments
         p.environment = ProcessInfo.processInfo.environment.merging(environment) { $1 }
-        let pipe = Pipe()
-        p.standardOutput = pipe
-        p.standardError = pipe
-        return try await withCheckedThrowingContinuation { cont in
-            p.terminationHandler = { proc in
-                let out = String(data: pipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
-                cont.resume(returning: (proc.terminationStatus, out))
-            }
+        p.standardOutput = log
+        p.standardError = log
+        let status: Int32 = try await withCheckedThrowingContinuation { cont in
+            p.terminationHandler = { cont.resume(returning: $0.terminationStatus) }
             do { try p.run() } catch { cont.resume(throwing: error) }
         }
+        try? log.close()
+        let output = (try? String(contentsOf: logURL, encoding: .utf8)) ?? ""
+        return (status, String(output.suffix(4000)))
     }
 }

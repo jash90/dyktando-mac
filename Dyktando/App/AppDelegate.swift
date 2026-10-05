@@ -183,16 +183,18 @@ extension AppDelegate: AudioCaptureDelegate {
             }
             if discard { return }
 
-            if AudioDiagnostics.isDigitalSilence(samples) {
-                NSLog("[App] recording is digital silence (%d samples) — microphone access blocked?", samples.count)
-                await MainActor.run { self.hud.state.finish(preview: AudioDiagnostics.digitalSilenceMessage) }
-                return
-            }
 
             // Guard against empty / too-short recordings before hitting the engine.
             guard samples.count >= minSamples else {
                 print("[App] Skipping transcription: only \(samples.count) samples (need >= \(minSamples))")
                 await MainActor.run { self.hud.state.finish(preview: "Za krótko — przytrzymaj klawisz dłużej") }
+                return
+            }
+
+            // Dopiero po sprawdzeniu długości: krótkie stuknięcie to „za krótko”, nie problem z uprawnieniami.
+            if AudioDiagnostics.isDigitalSilence(samples) {
+                NSLog("[App] recording is digital silence (%d samples) — microphone access blocked?", samples.count)
+                await MainActor.run { self.hud.state.finish(preview: AudioDiagnostics.digitalSilenceMessage) }
                 return
             }
 

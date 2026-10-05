@@ -67,3 +67,27 @@ final class ModifierKeyMonitorTests: XCTestCase {
         XCTAssertEqual(events, [.startCapture, .cancelCapture])
     }
 }
+
+final class HotkeyMonitorSourceTests: XCTestCase {
+    @MainActor
+    func test_modifierCannotCancelOrStopShortcutRecording() {
+        var events: [HotkeyEvent] = []
+        let monitor = HotkeyMonitor { events.append($0) }
+        monitor.simulatePushToTalkDown()        // F5
+        monitor.simulateModifier(.start)        // prawy ⌘ w trakcie — ignorowany
+        monitor.simulateModifier(.cancel)       // ⌘C — nie może skasować nagrania z F5
+        monitor.simulateModifier(.stop)
+        XCTAssertEqual(events, [.startCapture])
+        monitor.simulatePushToTalkUp()
+        XCTAssertEqual(events, [.startCapture, .stopCapture])
+    }
+
+    @MainActor
+    func test_modifierRecording_canBeCancelled() {
+        var events: [HotkeyEvent] = []
+        let monitor = HotkeyMonitor { events.append($0) }
+        monitor.simulateModifier(.start)
+        monitor.simulateModifier(.cancel)
+        XCTAssertEqual(events, [.startCapture, .cancelCapture])
+    }
+}

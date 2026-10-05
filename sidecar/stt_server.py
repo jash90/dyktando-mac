@@ -7,7 +7,9 @@ POST /prepare    {"model": "canary"} -> pobiera i ładuje model (pierwszy raz: k
 POST /transcribe {"model": "...", "language": "pl" | null, "samples_b64": "<float32 LE, 16 kHz mono>"}
                                      -> {"text": "...", "ms": N, "language": "pl"}
 
-Słucha tylko na 127.0.0.1. Całe MLX (ładowanie i inferencja) idzie przez jeden wątek —
+Słucha tylko na 127.0.0.1 i wymaga nagłówka `X-Dyktando-Token` (token z env DYKTANDO_SIDECAR_TOKEN,
+losowany przez aplikację przy każdym starcie) — inaczej dowolna strona w przeglądarce mogłaby wysłać
+„prosty” POST na localhost. Własny nagłówek wymusza preflight CORS, którego serwer nie obsługuje. Całe MLX (ładowanie i inferencja) idzie przez jeden wątek —
 MLX wiąże strumienie GPU z wątkiem, w którym załadowano model.
 """
 
@@ -35,6 +37,7 @@ CANARY_MAX_S = 30.0  # dłuższe wejście Canary ucina (limit tokenów dekodera)
 
 MLX = ThreadPoolExecutor(max_workers=1, thread_name_prefix="mlx")
 _loaded: dict[str, object] = {}
+TOKEN = os.environ.get("DYKTANDO_SIDECAR_TOKEN", "")
 
 
 def _load(key: str):
@@ -69,7 +72,7 @@ def _split_on_silence(samples: np.ndarray, max_s: float) -> list[tuple[int, int]
     max_n, search_n, win = int(max_s * SR), int(5 * SR), int(0.1 * SR)
     spans, start = [], 0
     while len(samples) - start > max_n:
-        lo, hi = start + max_n - search_n, start + max_n
+        lo, hi = max(start + 1, start + max_n - search_n), start + max_n
         frames = samples[lo:hi][: (hi - lo) // win * win].reshape(-1, win)
         cut = lo + int(np.argmin((frames**2).mean(axis=1))) * win + win // 2
         spans.append((start, cut))
@@ -108,12 +111,22 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(data)
 
+    def _authorized(self) -> bool:
+        if TOKEN and self.headers.get("X-Dyktando-Token") == TOKEN:
+            return True
+        self._reply(403, {"error": "forbidden"})
+        return False
+
     def do_GET(self):
+        if not self._authorized():
+            return
         if self.path == "/health":
-            return self._reply(200, {"ready": True, "loaded": sorted(_loaded), "pid": os.getpid()})
+            return self._reply(200, {"service": "dyktando-sidecar", "ready": True, "loaded": sorted(_loaded), "pid": os.getpid()})
         self._reply(404, {"error": "not found"})
 
     def do_POST(self):
+        if not self._authorized():
+            return
         try:
             body = json.loads(self.rfile.read(int(self.headers.get("Content-Length") or 0)) or b"{}")
             key = body.get("model")
@@ -145,9 +158,19 @@ def main() -> None:
     ap.add_argument("--port", type=int, default=7863)
     ap.add_argument("--parent-pid", type=int, default=0, help="zakończ, gdy ten proces zniknie")
     args = ap.parse_args()
+    if not TOKEN:
+        raise SystemExit("brak DYKTANDO_SIDECAR_TOKEN — serwer startuje tylko z aplikacji Dyktando")
     if args.parent_pid:
         threading.Thread(target=_watch_parent, args=(args.parent_pid,), daemon=True).start()
-    server = ThreadingHTTPServer(("127.0.0.1", args.port), Handler)
+    # Po restarcie aplikacji poprzedni serwer kończy się dopiero ~2 s później (watchdog) — poczekaj na port.
+    for attempt in range(20):
+        try:
+            server = ThreadingHTTPServer(("127.0.0.1", args.port), Handler)
+            break
+        except OSError:
+            if attempt == 19:
+                raise
+            time.sleep(0.5)
     print(f"dyktando-sidecar pid={os.getpid()} port={args.port}", flush=True)
     server.serve_forever()
 
