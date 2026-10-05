@@ -4,6 +4,8 @@ import KeyboardShortcuts
 enum HotkeyEvent: Equatable {
     case startCapture
     case stopCapture
+    /// Nagranie przerwane (np. prawy ⌘ użyty jako część skrótu ⌘C) — odrzuć bez transkrypcji.
+    case cancelCapture
     case openSettings
 }
 
@@ -11,6 +13,7 @@ enum HotkeyEvent: Equatable {
 final class HotkeyMonitor {
     private let emit: (HotkeyEvent) -> Void
     private var isCapturing = false
+    private var modifierMonitor: ModifierKeyMonitor?
 
     init(emit: @escaping (HotkeyEvent) -> Void) {
         self.emit = emit
@@ -32,6 +35,19 @@ final class HotkeyMonitor {
         KeyboardShortcuts.onKeyDown(for: .openSettings) { [weak self] in
             self?.emit(.openSettings)
         }
+        modifierMonitor = ModifierKeyMonitor { [weak self] action in
+            switch action {
+            case .start:  self?.start()
+            case .stop:   self?.stop()
+            case .cancel: self?.cancel()
+            }
+        }
+    }
+
+    private func cancel() {
+        guard isCapturing else { return }
+        isCapturing = false
+        emit(.cancelCapture)
     }
 
     private func start() {
@@ -56,5 +72,6 @@ final class HotkeyMonitor {
     func simulatePushToTalkUp() { stop() }
     func simulateToggleTap() { toggle() }
     func simulateOpenSettingsTap() { emit(.openSettings) }
+    func simulateCancel() { cancel() }
     #endif
 }

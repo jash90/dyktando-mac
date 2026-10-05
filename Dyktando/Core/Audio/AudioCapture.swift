@@ -1,4 +1,5 @@
 import AVFoundation
+import AudioToolbox
 
 protocol AudioCaptureDelegate: AnyObject {
     func audioCapture(_ capture: AudioCapture, level rms: Float)
@@ -10,7 +11,10 @@ protocol AudioCaptureDelegate: AnyObject {
 final class AudioCapture {
     weak var delegate: AudioCaptureDelegate?
 
-    private let engine = AVAudioEngine()
+    /// Nowy silnik przy każdym nagraniu: AVAudioEngine przypina się do urządzenia wejściowego
+    /// przy pierwszym użyciu `inputNode`, więc jeden silnik na całe życie aplikacji nagrywał
+    /// z urządzenia domyślnego w chwili startu (np. MacBooka zamiast później podłączonej kamery).
+    private var engine = AVAudioEngine()
     private let buffer = AudioRingBuffer(capacitySeconds: 60, sampleRate: 16_000)
     private var converter: AVAudioConverter?
     private var tapCount: Int = 0
@@ -24,7 +28,9 @@ final class AudioCapture {
     func start() throws {
         tapCount = 0
         converter = nil  // recreated lazily in handleTap from the real pcm.format
+        engine = AVAudioEngine()
         let input = engine.inputNode
+        selectInputDevice(on: input)
         let reportedFormat = input.outputFormat(forBus: 0)
         NSLog("[Audio] start() called, inputNode.outputFormat: sr=%f ch=%d",
               reportedFormat.sampleRate, reportedFormat.channelCount)
@@ -58,6 +64,27 @@ final class AudioCapture {
         delegate?.audioCapture(self,
                                finishedWith: samples,
                                sampleRate: targetFormat.sampleRate)
+    }
+
+    /// Podpina urządzenie wybrane w Ustawieniach → Audio. Musi się wydarzyć przed odczytem
+    /// formatu i instalacją tapa. Brak wyboru / odłączone urządzenie = domyślne wejście systemu.
+    private func selectInputDevice(on input: AVAudioInputNode) {
+        guard let device = AudioDevices.selectedDevice() else {
+            NSLog("[Audio] input device: system default (%@)", AudioDevices.defaultInputDevice()?.name ?? "?")
+            return
+        }
+        guard let unit = input.audioUnit else {
+            NSLog("[Audio] input node has no audio unit — using system default")
+            return
+        }
+        var id = device.id
+        let status = AudioUnitSetProperty(unit,
+                                          kAudioOutputUnitProperty_CurrentDevice,
+                                          kAudioUnitScope_Global,
+                                          0,
+                                          &id,
+                                          UInt32(MemoryLayout<AudioDeviceID>.size))
+        NSLog("[Audio] input device: %@ (uid=%@) status=%d", device.name, device.uid, status)
     }
 
     private func handleTap(_ pcm: AVAudioPCMBuffer) {

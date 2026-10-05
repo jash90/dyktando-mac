@@ -7,6 +7,7 @@ private typealias EngineResult = Dyktando.TranscriptionResult
 final class ParakeetEngine: TranscriptionEngine, @unchecked Sendable {
     let id: EngineID = .parakeetTDTv3
     let displayName = "Parakeet TDT v3"
+    let detail = "natywny · FluidAudio / CoreML · najszybszy"
 
     // The v3 model supports a broad set of European languages via script-aware
     // token filtering (Language enum in FluidAudio).

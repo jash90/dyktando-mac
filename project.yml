@@ -27,13 +27,21 @@ targets:
     platform: macOS
     sources:
       - path: Dyktando
+      # Serwer MLX (Canary / Whisper) — kopiowany do Application Support przy instalacji modelu.
+      # Pojedyncze pliki, nie cały folder: sidecar/.venv (deweloperski) nie może trafić do paczki.
+      - path: sidecar/stt_server.py
+        buildPhase: resources
+      - path: sidecar/pyproject.toml
+        buildPhase: resources
+      - path: sidecar/uv.lock
+        buildPhase: resources
     info:
       path: Dyktando/Info.plist
       properties:
         LSUIElement: true
         CFBundleDisplayName: Dyktando
-        CFBundleShortVersionString: "0.1.0"
-        CFBundleVersion: "1"
+        CFBundleShortVersionString: "0.2.4"
+        CFBundleVersion: "6"
         CFBundleIconName: AppIcon
         NSMicrophoneUsageDescription: "Dyktando uses your microphone to transcribe speech into text. Audio never leaves your Mac."
         NSSpeechRecognitionUsageDescription: "Dyktando uses speech recognition (on-device) to transcribe your voice."
@@ -43,6 +51,7 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.bartekzimny.dyktando
+        CODE_SIGN_ENTITLEMENTS: Dyktando/Dyktando.entitlements
         SWIFT_OBJC_BRIDGING_HEADER: ""
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
   DyktandoTests:

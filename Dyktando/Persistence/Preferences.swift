@@ -11,6 +11,10 @@ final class Preferences: ObservableObject {
     @AppStorage("languageModeRaw")
     var languageModeRaw: String = "single:pl-PL"
 
+    /// UID urządzenia wejściowego z Core Audio; pusty = domyślne wejście systemu (Ustawienia → Audio).
+    @AppStorage(AudioDevices.preferenceKey)
+    var inputDeviceUID: String = ""
+
     @AppStorage("hudEnabled")
     var hudEnabled: Bool = true
 

@@ -8,13 +8,24 @@ final class EngineRegistry: ObservableObject {
 
     init() {
         engines[.parakeetTDTv3] = ParakeetEngine()
+        for variant in [MLXSidecarEngine.canary, MLXSidecarEngine.whisperTurbo, MLXSidecarEngine.whisperLarge] {
+            engines[variant.id] = MLXSidecarEngine(variant)
+        }
     }
 
-    /// Returns the user's transcription engine. With only Parakeet wired up,
-    /// the `prefs` argument is kept for source-compatibility with the rest
-    /// of the app but doesn't change the outcome.
+    /// Silnik wybrany w Ustawieniach → Modele. Gdy wybrany nie jest zainstalowany
+    /// (albo zapisany identyfikator jest nieznany), wracamy do Parakeeta.
     func active(prefs: Preferences) -> TranscriptionEngine {
-        return engines[.parakeetTDTv3]!
+        engines[Self.resolve(preferred: prefs.defaultEngineID, isInstalled: { [engines] in
+            engines[$0]?.isInstalled ?? false
+        })]!
+    }
+
+    nonisolated static func resolve(preferred raw: String, isInstalled: (EngineID) -> Bool) -> EngineID {
+        if let id = EngineID(rawValue: raw), id != .parakeetTDTv3, isInstalled(id) {
+            return id
+        }
+        return .parakeetTDTv3
     }
 
     func engine(for id: EngineID) -> TranscriptionEngine? {

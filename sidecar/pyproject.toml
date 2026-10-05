@@ -1,0 +1,11 @@
+[project]
+name = "dyktando-sidecar"
+version = "0.2.0"
+description = "Lokalny serwer MLX dla Dyktando: Canary-1b-v2 i Whisper large-v3(-turbo)"
+requires-python = ">=3.11,<3.13"
+dependencies = [
+    "mlx-whisper>=0.4.3",
+    "mlx-audio>=0.5.7",
+    "sentencepiece>=0.2.0",
+    "numpy>=2.0",
+]

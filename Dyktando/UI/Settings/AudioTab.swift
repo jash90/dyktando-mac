@@ -1,20 +1,28 @@
 import SwiftUI
-import AVFoundation
 
 struct AudioTab: View {
-    @State private var devices: [String] = AudioTab.discoverInputDevices()
-    @State private var selected: String = AudioTab.currentInputName()
+    @AppStorage(AudioDevices.preferenceKey) private var selectedUID: String = ""
+    @State private var devices: [AudioInputDevice] = AudioDevices.inputDevices()
+    @State private var systemDefault: AudioInputDevice? = AudioDevices.defaultInputDevice()
 
     var body: some View {
         Form {
             Section {
-                Picker("Urządzenie", selection: $selected) {
-                    ForEach(devices, id: \.self) { Text($0).tag($0) }
+                Picker("Urządzenie", selection: $selectedUID) {
+                    Text("Domyślne systemowe (\(systemDefault?.name ?? "brak"))").tag("")
+                    ForEach(devices) { device in
+                        Text(device.name).tag(device.uid)
+                    }
+                    // Zapisane urządzenie, które jest teraz odłączone — zostaw je na liście.
+                    if !selectedUID.isEmpty, !devices.contains(where: { $0.uid == selectedUID }) {
+                        Text("Odłączone urządzenie (używam domyślnego)").tag(selectedUID)
+                    }
                 }
+                Button("Odśwież listę") { refresh() }
             } header: {
                 Text("Wejście")
             } footer: {
-                Text("Wybór jest informacyjny w tej wersji — system używa domyślnego wejścia. Pełna integracja w kolejnej wersji.")
+                Text("Wybrane urządzenie działa od następnego nagrania. Gdy jest odłączone, Dyktando nagrywa z domyślnego wejścia systemu.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -26,17 +34,11 @@ struct AudioTab: View {
         }
         .formStyle(.grouped)
         .padding(8)
+        .onAppear(perform: refresh)
     }
 
-    static func discoverInputDevices() -> [String] {
-        AVCaptureDevice.DiscoverySession(
-            deviceTypes: [.microphone, .external],
-            mediaType: .audio,
-            position: .unspecified
-        ).devices.map { $0.localizedName }
-    }
-
-    static func currentInputName() -> String {
-        AVCaptureDevice.default(for: .audio)?.localizedName ?? "Domyślne"
+    private func refresh() {
+        devices = AudioDevices.inputDevices()
+        systemDefault = AudioDevices.defaultInputDevice()
     }
 }
