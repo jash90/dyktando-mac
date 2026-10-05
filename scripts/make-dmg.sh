@@ -16,10 +16,15 @@ if [ ! -d "$APP_PATH" ]; then
   exit 1
 fi
 
-# Ad-hoc sign (no Developer ID required) — needed so AppleScript / Accessibility
-# permissions stick across launches.
-echo "Code-signing $APP_PATH (ad-hoc)…"
-codesign --force --deep --sign - "$APP_PATH"
+# Podpis: Developer ID (SIGN_ID z Makefile) + hardened runtime + entitlements.
+# Bez `com.apple.security.device.audio-input` mikrofon zwraca same zera (regresja 0.2.0–0.2.2),
+# a podpis ad-hoc zmienia się z każdym buildem, więc macOS gubi uprawnienia po aktualizacji.
+SIGN_ID="${SIGN_ID:--}"
+ENTITLEMENTS="$(cd "$(dirname "$0")/.." && pwd)/Dyktando/Dyktando.entitlements"
+echo "Code-signing $APP_PATH (identity: $SIGN_ID)…"
+codesign --force --options runtime --entitlements "$ENTITLEMENTS" --sign "$SIGN_ID" "$APP_PATH"
+codesign -d --entitlements - "$APP_PATH" 2>/dev/null | grep -q audio-input \
+  || { echo "Error: brak entitlementu audio-input w podpisie" >&2; exit 1; }
 
 # Remove existing DMG.
 rm -f "$DMG_PATH"
@@ -58,6 +63,10 @@ if [ ! -f "$DMG_PATH" ]; then
     -format UDZO \
     "$DMG_PATH"
   rm -rf "$STAGING"
+fi
+
+if [ -f "$DMG_PATH" ] && [ "$SIGN_ID" != "-" ]; then
+  codesign --force --sign "$SIGN_ID" "$DMG_PATH"
 fi
 
 if [ -f "$DMG_PATH" ]; then

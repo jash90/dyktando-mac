@@ -12,6 +12,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let registry = EngineRegistry.shared
     private let prefs = Preferences.shared
     private var onboardingWindow: OnboardingWindowController?
+    /// Ustawiane przy `.cancelCapture` — najbliższe nagranie trafia do kosza zamiast do modelu.
+    private var discardNextRecording = false
 
     var sharedRegistry: EngineRegistry { registry }
 
@@ -27,6 +29,32 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             hud.show()
         }
         showOnboardingIfNeeded()
+        prewarmActiveEngine()
+    }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        // Serwer MLX to osobny proces — nie zostawiamy go po zamknięciu aplikacji.
+        let done = DispatchSemaphore(value: 0)
+        Task.detached {
+            await MLXSidecar.shared.stop()
+            done.signal()
+        }
+        _ = done.wait(timeout: .now() + 1)
+    }
+
+    /// Model MLX ładuje się kilka–kilkadziesiąt sekund — robimy to w tle od razu po wyborze,
+    /// żeby pierwsze dyktowanie nie czekało.
+    func prewarmActiveEngine() {
+        guard let engine = registry.active(prefs: prefs) as? MLXSidecarEngine else { return }
+        let key = engine.variant.modelKey
+        Task.detached(priority: .utility) {
+            do {
+                try await MLXSidecar.shared.prepare(model: key)
+                NSLog("[App] prewarm %@ OK", key)
+            } catch {
+                NSLog("[App] prewarm %@ failed: %@", key, String(describing: error))
+            }
+        }
     }
 
     @objc func openSettings() {
@@ -55,20 +83,33 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         LanguageModeCodec.decode(prefs.languageModeRaw)
     }
 
-    private func currentInjector() -> TextInjector {
+    private var didPromptAccessibility = false
+
+    /// Wklejać tylko wtedy, gdy kursor jest w polu tekstowym (albo aplikacja nie mówi, co ma fokus).
+    /// Bez uprawnienia Dostępności ⌘V i tak nie zadziała — wtedy tylko schowek + systemowa prośba o zgodę.
+    private func pasteDecision() -> PasteDecision {
         let trusted = permissions.refreshAccessibility()
-        NSLog("[App] currentInjector: AX trusted=%@ → mode=%@",
-              trusted ? "true" : "false",
-              trusted ? "accessibilityPaste" : "clipboardOnly")
-        return TextInjector(mode: trusted ? .accessibilityPaste : .clipboardOnly)
+        guard trusted else {
+            if !didPromptAccessibility {
+                didPromptAccessibility = true
+                permissions.promptAccessibility()
+            }
+            NSLog("[App] paste decision: no Accessibility → clipboard only")
+            return .clipboardNoPermission
+        }
+        let (kind, snap) = FocusInspector.current()
+        NSLog("[App] focus: app=%@ role=%@ subrole=%@ settable=%@ axError=%@ → %@",
+              snap.bundleID ?? "?", snap.role ?? "-", snap.subrole ?? "-",
+              snap.valueSettable ? "yes" : "no", snap.axError.map(String.init) ?? "-", String(describing: kind))
+        return PasteDecision.decide(accessibilityTrusted: true, focus: kind)
     }
 
-    /// Appends a clipboard-only hint to the HUD preview so the user knows the
-    /// text was only copied (no automatic ⌘V) and why.
-    private func annotate(_ preview: String, mode: TextInjector.Mode) -> String {
-        switch mode {
-        case .accessibilityPaste: return preview
-        case .clipboardOnly:      return preview + "  ·  📋 wklej ⌘V (włącz Accessibility w Ustawieniach)"
+    /// Dopisek w HUD, gdy tekst został tylko w schowku — żeby było wiadomo dlaczego.
+    private func annotate(_ preview: String, decision: PasteDecision) -> String {
+        switch decision {
+        case .paste:                 return preview
+        case .clipboardNoTextField:  return preview + "  ·  📋 w schowku — kursor nie był w polu tekstowym (⌘V)"
+        case .clipboardNoPermission: return preview + "  ·  📋 wklej ⌘V (włącz Dostępność dla Dyktando w Ustawieniach systemowych)"
         }
     }
 
@@ -107,6 +148,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         case .stopCapture:
             audio.stop()
             hud.state.beginTranscribing()
+        case .cancelCapture:
+            discardNextRecording = true
+            audio.stop()
+            hud.state.resetToIdle()
         case .openSettings:
             SettingsWindowController.shared.show()
         }
@@ -126,18 +171,33 @@ extension AppDelegate: AudioCaptureDelegate {
             try? WAVWriter.write(samples, sampleRate: sampleRate, to: url)
         }
 
-        // Guard against empty / too-short recordings before hitting the engine.
         let minSamples = Int(sampleRate * 0.3)   // 300 ms
-        guard samples.count >= minSamples else {
-            print("[App] Skipping transcription: only \(samples.count) samples (need >= \(minSamples))")
-            Task { @MainActor [weak self] in
-                self?.hud.state.finish(preview: "Za krótko — przytrzymaj F5 dłużej")
-            }
-            return
-        }
-
         Task { [weak self] in
             guard let self else { return }
+            // Anulowane nagranie (modyfikator użyty jako część skrótu) — odrzuć po cichu.
+            let discard = await MainActor.run { () -> Bool in
+                guard self.discardNextRecording else { return false }
+                self.discardNextRecording = false
+                self.hud.state.resetToIdle()
+                return true
+            }
+            if discard { return }
+
+
+            // Guard against empty / too-short recordings before hitting the engine.
+            guard samples.count >= minSamples else {
+                print("[App] Skipping transcription: only \(samples.count) samples (need >= \(minSamples))")
+                await MainActor.run { self.hud.state.finish(preview: "Za krótko — przytrzymaj klawisz dłużej") }
+                return
+            }
+
+            // Dopiero po sprawdzeniu długości: krótkie stuknięcie to „za krótko”, nie problem z uprawnieniami.
+            if AudioDiagnostics.isDigitalSilence(samples) {
+                NSLog("[App] recording is digital silence (%d samples) — microphone access blocked?", samples.count)
+                await MainActor.run { self.hud.state.finish(preview: AudioDiagnostics.digitalSilenceMessage) }
+                return
+            }
+
             do {
                 let (engine, mode) = await MainActor.run {
                     (self.registry.active(prefs: self.prefs), self.currentLanguageMode)
@@ -149,10 +209,11 @@ extension AppDelegate: AudioCaptureDelegate {
                 await MainActor.run {
                     let pipeline = PostprocessPipeline(mode: self.currentLanguageMode)
                     let polished = pipeline.apply(result.text)
-                    let injector = self.currentInjector()
+                    let decision = self.pasteDecision()
+                    let injector = TextInjector(mode: decision == .paste ? .accessibilityPaste : .clipboardOnly)
                     injector.insert(polished)
                     let preview = polished.isEmpty ? "(brak tekstu)" : polished
-                    self.hud.state.finish(preview: self.annotate(preview, mode: injector.mode))
+                    self.hud.state.finish(preview: self.annotate(preview, decision: decision))
                 }
             } catch {
                 await MainActor.run {

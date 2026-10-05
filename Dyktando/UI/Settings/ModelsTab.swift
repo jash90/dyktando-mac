@@ -24,6 +24,11 @@ struct ModelsTab: View {
             }
         }
         .listStyle(.inset)
+        .safeAreaInset(edge: .bottom) {
+            Text("Modele MLX (Canary, Whisper) działają przez lokalny serwer Python — pierwsza instalacja tworzy środowisko przez uv (brew install uv) i pobiera model; potem wszystko działa offline.")
+                .font(.caption).foregroundStyle(.secondary)
+                .padding(8)
+        }
         .alert("Błąd",
                isPresented: Binding(
                    get: { alertMessage != nil },
@@ -46,6 +51,7 @@ struct ModelsTab: View {
                     }
                 }
                 print("Install OK: \(id.rawValue)")
+                prefs.defaultEngineID = id.rawValue   // świeżo zainstalowany = od razu do przetestowania
             } catch {
                 let msg = "Instalacja \(engine.displayName) nie powiodła się:\n\(error.localizedDescription)\n\nSzczegóły: \(String(describing: error))"
                 print("install failed [\(id.rawValue)]: \(error)")
@@ -59,6 +65,9 @@ struct ModelsTab: View {
 
     private func uninstall(_ engine: TranscriptionEngine) {
         do {
+            if prefs.defaultEngineID == engine.id.rawValue {
+                prefs.defaultEngineID = EngineID.parakeetTDTv3.rawValue
+            }
             try engine.uninstall()
             registryTick &+= 1
         } catch {
@@ -90,6 +99,9 @@ struct EngineRow: View {
                             .background(.tint, in: Capsule())
                     }
                 }
+                if !engine.detail.isEmpty {
+                    Text(engine.detail).font(.caption).foregroundStyle(.secondary)
+                }
                 Text(engine.isInstalled ? "Zainstalowany" : "Niezainstalowany")
                     .font(.caption).foregroundStyle(.secondary)
                 if isInstalling, let progress {
@@ -102,7 +114,12 @@ struct EngineRow: View {
             if isInstalling {
                 ProgressView().controlSize(.small)
             } else if engine.isInstalled {
-                Button("Odinstaluj", role: .destructive, action: onUninstall)
+                if !isDefault {
+                    Button("Ustaw jako domyślny", action: onSetDefault)
+                }
+                if engine.id != .parakeetTDTv3 || !isDefault {
+                    Button("Odinstaluj", role: .destructive, action: onUninstall)
+                }
             } else {
                 Button("Zainstaluj", action: onInstall)
             }
