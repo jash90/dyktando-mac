@@ -40,10 +40,11 @@ targets:
       properties:
         LSUIElement: true
         CFBundleDisplayName: Dyktando
-        CFBundleShortVersionString: "0.2.4"
-        CFBundleVersion: "6"
+        CFBundleShortVersionString: "0.3.0"
+        CFBundleVersion: "7"
         CFBundleIconName: AppIcon
         NSMicrophoneUsageDescription: "Dyktando uses your microphone to transcribe speech into text. Audio never leaves your Mac."
+        NSAudioCaptureUsageDescription: "Dyktando nagrywa dźwięk z aplikacji (np. Google Meet, Zoom, Teams) podczas nagrywania spotkania, żeby przepisać wypowiedzi rozmówców. Nagranie zostaje na Twoim Macu."
         NSSpeechRecognitionUsageDescription: "Dyktando uses speech recognition (on-device) to transcribe your voice."
     dependencies:
       - package: KeyboardShortcuts

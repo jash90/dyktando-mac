@@ -11,6 +11,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let permissions = PermissionsService()
     private let registry = EngineRegistry.shared
     private let prefs = Preferences.shared
+    let meetings = MeetingRecorder.shared
     private var onboardingWindow: OnboardingWindowController?
     /// Ustawiane przy `.cancelCapture` — najbliższe nagranie trafia do kosza zamiast do modelu.
     private var discardNextRecording = false
@@ -30,9 +31,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         showOnboardingIfNeeded()
         prewarmActiveEngine()
+        let recovered = MeetingStore.shared.recoverInterrupted()
+        if recovered > 0 { NSLog("[Meeting] recovered %d interrupted meeting(s)", recovered) }
+        applyAudioRetention()
+        retentionTimer = Timer.scheduledTimer(withTimeInterval: 86_400, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated { self?.applyAudioRetention() }
+        }
+        MeetingDetector.shared.start()
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        meetings.stop()  // domknij pliki i meeting.json (stan „recorded”, nie „interrupted”)
+        MeetingProcessing.shared.cancelAll()
         // Serwer MLX to osobny proces — nie zostawiamy go po zamknięciu aplikacji.
         let done = DispatchSemaphore(value: 0)
         Task.detached {
@@ -81,6 +91,47 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private var currentLanguageMode: LanguageMode {
         LanguageModeCodec.decode(prefs.languageModeRaw)
+    }
+
+    // MARK: - Spotkania
+
+    private var retentionTimer: Timer?
+
+    private func applyAudioRetention() {
+        let cleaned = MeetingStore.shared.applyRetention(days: prefs.meetingAudioRetentionDays)
+        if cleaned > 0 { NSLog("[Meeting] retention: removed audio of %d meeting(s)", cleaned) }
+    }
+
+    /// Z podpowiedzi „Wykryto spotkanie”: tylko start — nigdy nie zatrzymuje trwającego nagrania.
+    func startMeetingRecording() {
+        guard !meetings.isRecording else { return }
+        toggleMeetingRecording()
+    }
+
+    @objc func toggleMeetingRecording() {
+        if meetings.isRecording {
+            if let meeting = meetings.stop() {
+                hud.state.meetingStartedAt = nil
+                hud.state.finish(preview: "Zapisano spotkanie (\(Self.clock(meeting.durationSeconds)))")
+                if prefs.meetingAutoTranscribe { MeetingProcessing.shared.transcribe(meeting.id) }
+            }
+            return
+        }
+        meetings.start()
+        guard meetings.isRecording else {
+            hud.state.finish(preview: "Nie udało się nagrać: \(meetings.lastError ?? "nieznany błąd")")
+            return
+        }
+        hud.state.meetingStartedAt = meetings.startedAt
+        if prefs.hudEnabled { hud.show() }
+        let note = meetings.systemAudioUnavailableReason.map { " · \($0)" } ?? ""
+        hud.state.finish(preview: "Nagrywam spotkanie — poinformuj rozmówców o nagrywaniu\(note)")
+    }
+
+    nonisolated static func clock(_ seconds: Double) -> String {
+        let s = Int(seconds.rounded())
+        return s >= 3600 ? String(format: "%d:%02d:%02d", s / 3600, s / 60 % 60, s % 60)
+                         : String(format: "%d:%02d", s / 60, s % 60)
     }
 
     private var didPromptAccessibility = false
@@ -154,6 +205,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             hud.state.resetToIdle()
         case .openSettings:
             SettingsWindowController.shared.show()
+        case .toggleMeeting:
+            toggleMeetingRecording()
         }
     }
 }

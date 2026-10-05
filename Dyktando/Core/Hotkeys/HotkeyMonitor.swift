@@ -7,6 +7,8 @@ enum HotkeyEvent: Equatable {
     /// Nagranie przerwane (np. prawy ⌘ użyty jako część skrótu ⌘C) — odrzuć bez transkrypcji.
     case cancelCapture
     case openSettings
+    /// Start/stop nagrywania spotkania (niezależne od dyktowania).
+    case toggleMeeting
 }
 
 @MainActor
@@ -37,6 +39,9 @@ final class HotkeyMonitor {
         }
         KeyboardShortcuts.onKeyDown(for: .openSettings) { [weak self] in
             self?.emit(.openSettings)
+        }
+        KeyboardShortcuts.onKeyDown(for: .toggleMeetingRecording) { [weak self] in
+            self?.emit(.toggleMeeting)
         }
         modifierMonitor = ModifierKeyMonitor { [weak self] action in
             self?.handleModifier(action)

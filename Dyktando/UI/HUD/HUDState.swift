@@ -11,6 +11,8 @@ enum HUDPhase: Equatable {
 final class HUDState: ObservableObject {
     @Published private(set) var phase: HUDPhase = .idle
     @Published var level: Float = 0
+    /// Ustawione, gdy trwa nagrywanie spotkania — HUD w spoczynku pokazuje wtedy ● i czas.
+    @Published var meetingStartedAt: Date?
 
     private var autoIdleTask: Task<Void, Never>?
 

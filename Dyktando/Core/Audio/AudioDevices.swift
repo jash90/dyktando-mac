@@ -1,3 +1,5 @@
+import AVFoundation
+import AudioToolbox
 import CoreAudio
 import Foundation
 
@@ -47,6 +49,28 @@ enum AudioDevices {
     static func selectedDevice(defaults: UserDefaults = .standard) -> AudioInputDevice? {
         guard let uid = defaults.string(forKey: preferenceKey), !uid.isEmpty else { return nil }
         return inputDevices().first { $0.uid == uid }
+    }
+
+    /// Podpina urządzenie wybrane w Ustawieniach → Audio do węzła wejścia AVAudioEngine.
+    /// Musi się wydarzyć przed odczytem formatu i instalacją tapa. Brak wyboru / odłączone
+    /// urządzenie = domyślne wejście systemu. Wspólne dla dyktowania i nagrywania spotkań.
+    static func applySelectedDevice(to input: AVAudioInputNode) {
+        guard let device = selectedDevice() else {
+            NSLog("[Audio] input device: system default (%@)", defaultInputDevice()?.name ?? "?")
+            return
+        }
+        guard let unit = input.audioUnit else {
+            NSLog("[Audio] input node has no audio unit — using system default")
+            return
+        }
+        var id = device.id
+        let status = AudioUnitSetProperty(unit,
+                                          kAudioOutputUnitProperty_CurrentDevice,
+                                          kAudioUnitScope_Global,
+                                          0,
+                                          &id,
+                                          UInt32(MemoryLayout<AudioDeviceID>.size))
+        NSLog("[Audio] input device: %@ (uid=%@) status=%d", device.name, device.uid, status)
     }
 
     // MARK: - Core Audio
