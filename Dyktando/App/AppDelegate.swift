@@ -42,6 +42,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationWillTerminate(_ notification: Notification) {
         meetings.stop()  // domknij pliki i meeting.json (stan „recorded”, nie „interrupted”)
+        MeetingProcessing.shared.cancelAll()
         // Serwer MLX to osobny proces — nie zostawiamy go po zamknięciu aplikacji.
         let done = DispatchSemaphore(value: 0)
         Task.detached {
@@ -99,6 +100,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func applyAudioRetention() {
         let cleaned = MeetingStore.shared.applyRetention(days: prefs.meetingAudioRetentionDays)
         if cleaned > 0 { NSLog("[Meeting] retention: removed audio of %d meeting(s)", cleaned) }
+    }
+
+    /// Z podpowiedzi „Wykryto spotkanie”: tylko start — nigdy nie zatrzymuje trwającego nagrania.
+    func startMeetingRecording() {
+        guard !meetings.isRecording else { return }
+        toggleMeetingRecording()
     }
 
     @objc func toggleMeetingRecording() {

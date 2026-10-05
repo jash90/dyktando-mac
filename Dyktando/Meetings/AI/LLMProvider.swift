@@ -203,20 +203,37 @@ struct AnthropicProvider: LLMProvider {
     /// Odmowa klasyfikatora bezpieczeństwa → API samo powtarza zapytanie na zalecanym modelu zastępczym.
     static let fallbackBeta = "server-side-fallback-2026-07-01"
 
+    /// Modele z serwerowym `fallbacks: "default"` (rodzina Opus 5 / Opus 5.5 / Sonnet 5.5 / Fable 5.1).
+    static let fallbackModels: Set<String> = ["claude-opus-5", "claude-opus-5-5", "claude-sonnet-5-5", "claude-fable-5-1"]
+
+    /// `output_config.effort` — błąd 400 na Haiku 4.5, Sonnet 4.5 i starszych; obsługują go nowsze modele.
+    static func supportsEffort(_ model: String) -> Bool {
+        let supported = ["claude-fable-", "claude-mythos-", "claude-opus-5", "claude-sonnet-5",
+                         "claude-opus-4-5", "claude-opus-4-6", "claude-opus-4-7", "claude-opus-4-8", "claude-sonnet-4-6"]
+        return supported.contains { model.hasPrefix($0) }
+    }
+
+    /// Fallback tylko do oficjalnego API Anthropic (bramki/proxy pod innym adresem mogą go nie znać).
+    var usesFallbacks: Bool {
+        Self.fallbackModels.contains(config.model) && config.base.host == "api.anthropic.com"
+    }
+
     var headers: [String: String] {
-        ["x-api-key": config.apiKey, "anthropic-version": Self.version, "anthropic-beta": Self.fallbackBeta]
+        var h = ["x-api-key": config.apiKey, "anthropic-version": Self.version]
+        if usesFallbacks { h["anthropic-beta"] = Self.fallbackBeta }
+        return h
     }
 
     func makeRequest(system: String, user: String, maxTokens: Int) throws -> URLRequest {
-        let body: [String: Any] = [
+        var body: [String: Any] = [
             "model": config.model,
             "max_tokens": maxTokens,
             "system": system,
             "messages": [["role": "user", "content": user]],
-            // Claude Opus 5.5 ma domyślnie effort „medium” — ustawiamy jawnie; wystarcza do podsumowań.
-            "output_config": ["effort": "medium"],
-            "fallbacks": "default",
         ]
+        // Claude Opus 5.5 ma domyślnie effort „medium” — ustawiamy jawnie tam, gdzie model to obsługuje.
+        if Self.supportsEffort(config.model) { body["output_config"] = ["effort": "medium"] }
+        if usesFallbacks { body["fallbacks"] = "default" }
         return try LLMHTTP.jsonRequest(url: config.base.appendingPathComponent("messages"), body: body, headers: headers)
     }
 

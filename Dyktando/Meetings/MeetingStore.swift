@@ -110,6 +110,14 @@ struct MeetingStore: Sendable {
             try? save(meeting)
             recovered += 1
         }
+        // Aplikacja zamknięta w trakcie transkrypcji / podsumowania — przywróć stan wynikający z plików.
+        for var meeting in all() where meeting.state == .transcribing || meeting.state == .summarizing {
+            let hasTranscript = FileManager.default.fileExists(atPath: transcriptURL(for: meeting.id).path)
+            let hasSummary = MeetingSummarizer.latest(for: meeting.id, store: self) != nil
+            meeting.state = hasSummary ? .summarized : hasTranscript ? .transcribed : .recorded
+            try? save(meeting)
+            recovered += 1
+        }
         return recovered
     }
 

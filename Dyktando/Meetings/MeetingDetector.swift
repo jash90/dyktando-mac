@@ -65,7 +65,7 @@ final class MeetingDetector {
         let view = MeetingPromptView(appName: appName,
                                      onRecord: { [weak self] in
                                          self?.panel?.close()
-                                         (NSApp.delegate as? AppDelegate)?.toggleMeetingRecording()
+                                         (NSApp.delegate as? AppDelegate)?.startMeetingRecording()
                                      },
                                      onDismiss: { [weak self] in self?.panel?.close() })
         let panel = NSPanel(contentRect: NSRect(x: 0, y: 0, width: 360, height: 96),
@@ -86,8 +86,12 @@ final class MeetingDetector {
         DispatchQueue.main.asyncAfter(deadline: .now() + 30) { [weak panel] in panel?.close() }
     }
 
+    /// Procesy pomocnicze bez własnej aplikacji (mikrofon w Safari idzie przez WebKit).
+    static let displayAliases = ["com.apple.WebKit": "com.apple.Safari"]
+
     static func displayName(for bundleID: String) -> String {
-        NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID)
+        let bundleID = displayAliases[bundleID] ?? bundleID
+        return NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID)
             .flatMap { FileManager.default.displayName(atPath: $0.path).replacingOccurrences(of: ".app", with: "") }
             ?? bundleID
     }

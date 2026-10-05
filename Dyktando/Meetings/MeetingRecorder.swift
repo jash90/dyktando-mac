@@ -32,8 +32,10 @@ final class MeetingRecorder: ObservableObject {
         lastError = nil
         systemAudioUnavailableReason = nil
         let now = Date()
+        var createdID: String?
         do {
             var meeting = try store.create(startedAt: now, hasSystemAudio: false)
+            createdID = meeting.id
             let audio = store.audioFolder(for: meeting.id)
 
             let micWriter = SegmentedAudioWriter(directory: audio, prefix: Meeting.micPrefix)
@@ -75,6 +77,8 @@ final class MeetingRecorder: ObservableObject {
             lastError = error.localizedDescription
             NSLog("[Meeting] start failed: %@", String(describing: error))
             teardown()
+            // Folder z meeting.json w stanie „recording” byłby fantomem nie do usunięcia z listy.
+            if let createdID { try? store.delete(createdID) }
         }
     }
 
@@ -118,6 +122,10 @@ final class MeetingRecorder: ObservableObject {
         }
         tapRestarts += 1
         system.stop()
+        // Martwy tap nie zapisał nic — dopełnij ścieżkę ciszą do długości mikrofonu, żeby czasy
+        // rozmówców nie przesunęły się o czas, w którym użytkownik udzielał zgody.
+        let gap = Self.alignmentPadding(reference: micWriter?.samplesWritten ?? 0, track: writer.samplesWritten)
+        if gap > 0 { writer.append([Float](repeating: 0, count: gap)) }
         let fresh = SystemAudioRecorder(writer: writer)
         do {
             try fresh.start()
@@ -126,6 +134,11 @@ final class MeetingRecorder: ObservableObject {
         } catch {
             NSLog("[Meeting] system tap recreate failed: %@", String(describing: error))
         }
+    }
+
+    /// Ile próbek ciszy dopisać do ścieżki, żeby zrównała się z referencyjną (mikrofonem).
+    nonisolated static func alignmentPadding(reference: Int, track: Int) -> Int {
+        max(0, reference - track)
     }
 
     private func saveProgress() {

@@ -126,4 +126,42 @@ final class MeetingRecordingTests: XCTestCase {
         XCTAssertEqual(AppDelegate.clock(754), "12:34")
         XCTAssertEqual(AppDelegate.clock(3_725), "1:02:05")
     }
+
+    // MARK: Poprawki z recenzji PR #2
+
+    func test_resampler_downmixesRightOnlyChannel() {
+        let format = AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: 48_000, channels: 2, interleaved: false)!
+        let buf = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 9_600)!
+        buf.frameLength = 9_600
+        for i in 0..<9_600 {
+            buf.floatChannelData![0][i] = 0                                              // lewy: cisza
+            buf.floatChannelData![1][i] = 0.4 * sin(2 * .pi * 440 * Float(i) / 48_000)   // prawy: rozmówca
+        }
+        let out = MonoResampler().convert(buf)
+        XCTAssertTrue(out.contains { abs($0) > 0.05 }, "dźwięk tylko z prawego kanału nie może zniknąć")
+    }
+
+    func test_alignmentPadding() {
+        XCTAssertEqual(MeetingRecorder.alignmentPadding(reference: 160_000, track: 0), 160_000)
+        XCTAssertEqual(MeetingRecorder.alignmentPadding(reference: 1_000, track: 4_000), 0)
+    }
+
+    func test_store_recoversStuckProcessingStates() throws {
+        let store = MeetingStore(root: tmp)
+        var a = try store.create(startedAt: Date(timeIntervalSince1970: 1_000), hasSystemAudio: false)
+        a.state = .transcribing
+        try store.save(a)
+        var b = try store.create(startedAt: Date(timeIntervalSince1970: 2_000), hasSystemAudio: false)
+        b.state = .summarizing
+        try store.save(b)
+        try "t".write(to: store.transcriptURL(for: b.id), atomically: true, encoding: .utf8)
+
+        store.recoverInterrupted()
+        XCTAssertEqual(store.load(a.id)?.state, .recorded, "brak transkryptu → wróć do „nagrane”")
+        XCTAssertEqual(store.load(b.id)?.state, .transcribed, "jest transkrypt, brak podsumowania → „przepisane”")
+    }
+
+    func test_detector_webkitShownAsSafari() {
+        XCTAssertEqual(MeetingDetector.displayAliases["com.apple.WebKit"], "com.apple.Safari")
+    }
 }

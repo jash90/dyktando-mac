@@ -265,4 +265,32 @@ final class MeetingAITests: XCTestCase {
         var off = MeetingDetectionLogic()
         XCTAssertNil(off.update(activeBundleIDs: ["us.zoom.xos"], isRecording: false, enabled: false))
     }
+
+    // MARK: Anthropic — parametry zależne od modelu (recenzja PR #2)
+
+    func test_anthropic_haiku_noEffortNoFallbacks() throws {
+        let r = try AnthropicProvider(config: config(.anthropic, model: "claude-haiku-4-5-20251001"), session: .shared)
+            .makeRequest(system: "S", user: "U", maxTokens: 100)
+        let b = try body(r)
+        XCTAssertNil(b["output_config"], "Haiku 4.5 zwraca 400 na effort")
+        XCTAssertNil(b["fallbacks"])
+        XCTAssertNil(r.value(forHTTPHeaderField: "anthropic-beta"))
+    }
+
+    func test_anthropic_sonnet46_effortButNoFallbacks() throws {
+        let r = try AnthropicProvider(config: config(.anthropic, model: "claude-sonnet-4-6"), session: .shared)
+            .makeRequest(system: "S", user: "U", maxTokens: 100)
+        let b = try body(r)
+        XCTAssertNotNil(b["output_config"])
+        XCTAssertNil(b["fallbacks"])
+    }
+
+    func test_anthropic_customHost_noFallbacks() throws {
+        var c = config(.anthropic, model: "claude-opus-5-5")
+        c.baseURL = "https://gateway.example.com/v1"
+        let r = try AnthropicProvider(config: c, session: .shared).makeRequest(system: "S", user: "U", maxTokens: 100)
+        XCTAssertNil(try body(r)["fallbacks"])
+        XCTAssertNil(r.value(forHTTPHeaderField: "anthropic-beta"))
+        XCTAssertEqual(r.url?.host, "gateway.example.com")
+    }
 }

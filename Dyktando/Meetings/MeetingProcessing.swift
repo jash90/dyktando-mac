@@ -22,6 +22,10 @@ final class MeetingProcessing: ObservableObject {
         guard tasks[meetingID] == nil else { return }
         let prefs = Preferences.shared
         let id = engineID ?? EngineID(rawValue: prefs.meetingEngineID) ?? .parakeetTDTv3
+        if let engine = EngineRegistry.shared.engine(for: id), !engine.isInstalled {
+            finish(meetingID, message: "Model \(engine.displayName) nie jest zainstalowany — zainstaluj go w Ustawieniach → Modele albo wybierz inny model do spotkań.")
+            return
+        }
         let options = MeetingTranscriber.Options(engine: EngineRegistry.makeEngine(id),
                                                  languageMode: LanguageModeCodec.decode(prefs.languageModeRaw),
                                                  diarize: prefs.meetingDiarization)
@@ -91,6 +95,11 @@ final class MeetingProcessing: ObservableObject {
                 self?.finish(meetingID, message: "Podsumowanie nie powiodło się: \(error.localizedDescription)")
             }
         }
+    }
+
+    /// Zamknięcie aplikacji: przerwij wszystko (stan spotkań wróci przy następnym starcie).
+    func cancelAll() {
+        tasks.values.forEach { $0.cancel() }
     }
 
     func cancel(_ meetingID: String) {

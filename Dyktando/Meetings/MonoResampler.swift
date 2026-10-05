@@ -17,6 +17,9 @@ final class MonoResampler {
         guard pcm.frameLength > 0 else { return [] }
         if converter == nil || inputFormat != pcm.format {
             converter = AVAudioConverter(from: pcm.format, to: Self.targetFormat)
+            // Bez downmix konwerter bierze tylko lewy kanał — rozmówca z prawej strony (stereo
+            // w Meet/Zoom) by zniknął. Downmix uśrednia wszystkie kanały do mono.
+            converter?.downmix = true
             inputFormat = pcm.format
         }
         guard let converter else { return [] }

@@ -71,6 +71,15 @@ final class SystemAudioRecorder {
     init(writer: SegmentedAudioWriter) { self.writer = writer }
 
     func start() throws {
+        do {
+            try startTap()
+        } catch {
+            stop()  // nie zostawiaj w systemie tapu ani urządzenia zbiorczego z połowy startu
+            throw error
+        }
+    }
+
+    private func startTap() throws {
         let own = Self.processObject(for: getpid())
         let description = CATapDescription(stereoGlobalTapButExcludeProcesses: own.map { [$0] } ?? [])
         description.uuid = UUID()
