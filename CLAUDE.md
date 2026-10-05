@@ -34,6 +34,9 @@ CI (`.github/workflows/ci.yml`) runs `xcodegen generate` → Debug build → tes
 
 ## Architecture — what to read first
 
+Settings is a sidebar (`SettingsPane` in `UI/Settings/SettingsWindowController.swift`) — add a case there for a new pane; a `TabView` with 8+ tabs collapses into a `>>` overflow on macOS.
+
+
 End-to-end flow lives in `Dyktando/App/AppDelegate.swift` — start there. It wires every subsystem together:
 
 ```
@@ -56,6 +59,12 @@ Key boundaries:
   - Sidecar resources are listed file-by-file in `project.yml` (never the `sidecar/` folder — a dev `.venv` there would be bundled). After changing Python deps: `cd sidecar && uv lock`, the app re-syncs when the bundled `uv.lock` differs.
   - Opt-in integration test installing all MLX models through app code: `TEST_RUNNER_DYKTANDO_MLX_INSTALL=1 make test`.
   - Engine files alias `Dyktando.TranscriptionResult` to `EngineResult` to disambiguate from library types.
+- **`Dyktando/Meetings/`** (v0.3) — meeting recording, independent of dictation:
+  - `MeetingRecorder` records two tracks: `MicTrackRecorder` (own `AVAudioEngine`) and `SystemAudioRecorder` (Core Audio **process tap**, macOS 14.4+, permission `NSAudioCaptureUsageDescription` / TCC `kTCCServiceAudioCapture`; a tap created before the user grants it never delivers buffers → `MeetingRecorder` recreates it). Both stream through `MonoResampler` into `SegmentedAudioWriter` (16 kHz mono CAF, rotated every 5 min) — nothing grows in RAM.
+  - `MeetingStore`: `AppPaths.support/Meetings/<yyyy-MM-dd_HH-mm-ss>/` with `meeting.json`, `audio/`, `transcript.md|json`, `summaries/`. On launch `recoverInterrupted()` repairs crash-truncated CAFs and marks them `interrupted`; `applyRetention(days:)` deletes audio only of already-transcribed meetings.
+  - `MeetingTranscriber` (actor): FluidAudio VAD in ~10-min windows → each speech segment through a **fresh** engine from `EngineRegistry.makeEngine` (never the dictation instance) → `OfflineDiarizerManager` on the system track → `TranscriptBuilder` (pure, tested: speaker labels, echo removal, merging, Markdown).
+  - `AI/`: `LLMProvider` (`OpenAICompatibleProvider` for OpenAI/OpenRouter/Z.AI, `AnthropicProvider` raw HTTP with `fallbacks: "default"` + refusal handling), keys only in `KeychainStore`, `MeetingSummarizer` map-reduce for long transcripts. `MeetingProcessing` runs jobs and exposes progress to the menu/HUD/`UI/Meetings/MeetingsWindowController`. `MeetingDetector` polls which processes use the mic (macOS 14.2+) and offers to record.
+  - Opt-in tests: `TEST_RUNNER_DYKTANDO_MEETING_E2E=1` (synthetic meeting, add `…_MINUTES=60` for timing).
 - **`Dyktando/Postprocess/PostprocessPipeline.swift`** — `ReplacementRules` (dictation markers: `kropka` → `.`, etc.) → `PunctuationHeuristic` (sentence-end period) → `PolishCapitalizer` → smart-space cleanup. Order matters; everything passes through here before injection.
 - **`Dyktando/Core/TextInjection/TextInjector.swift`** — snapshots `NSPasteboard.general`, writes new text, fires `CGEventPaste` (synthesized ⌘V), then restores the snapshot after **60 ms** (`restoreDelay`). Two modes: `accessibilityPaste` (full flow, requires Accessibility permission) and `clipboardOnly` (no ⌘V dispatch). `AppDelegate.pasteDecision()` picks: no Accessibility → `clipboardOnly` (+ one system prompt per launch); otherwise `FocusInspector` asks the frontmost app (AX, 0.25 s timeout, sets `AXManualAccessibility` for Electron) what is focused and `FocusClassifier` maps it to editable / notEditable / unknown — only **notEditable** (buttons, lists, Finder, no focus) skips ⌘V; unknown (e.g. Word returns -25204) still pastes so nothing regresses.
 - **`Dyktando/Persistence/Preferences.swift`** — `@MainActor` `ObservableObject` wrapping `@AppStorage`. SwiftUI `Settings` tabs (`Dyktando/UI/Settings/`) bind directly. Don't add new persistence layers — extend this.

@@ -28,6 +28,17 @@ final class EngineRegistry: ObservableObject {
         return .parakeetTDTv3
     }
 
+    /// Osobna instancja silnika (np. do długiej transkrypcji spotkania), żeby nie dzielić stanu
+    /// z instancją używaną przez dyktowanie F5. Modele na dysku są wspólne.
+    nonisolated static func makeEngine(_ id: EngineID) -> TranscriptionEngine {
+        switch id {
+        case .parakeetTDTv3:       return ParakeetEngine()
+        case .canary1bV2:          return MLXSidecarEngine(MLXSidecarEngine.canary)
+        case .whisperLargeV3Turbo: return MLXSidecarEngine(MLXSidecarEngine.whisperTurbo)
+        case .whisperLargeV3:      return MLXSidecarEngine(MLXSidecarEngine.whisperLarge)
+        }
+    }
+
     func engine(for id: EngineID) -> TranscriptionEngine? {
         engines[id]
     }

@@ -30,7 +30,7 @@ final class AudioCapture {
         converter = nil  // recreated lazily in handleTap from the real pcm.format
         engine = AVAudioEngine()
         let input = engine.inputNode
-        selectInputDevice(on: input)
+        AudioDevices.applySelectedDevice(to: input)
         let reportedFormat = input.outputFormat(forBus: 0)
         NSLog("[Audio] start() called, inputNode.outputFormat: sr=%f ch=%d",
               reportedFormat.sampleRate, reportedFormat.channelCount)
@@ -64,27 +64,6 @@ final class AudioCapture {
         delegate?.audioCapture(self,
                                finishedWith: samples,
                                sampleRate: targetFormat.sampleRate)
-    }
-
-    /// Podpina urządzenie wybrane w Ustawieniach → Audio. Musi się wydarzyć przed odczytem
-    /// formatu i instalacją tapa. Brak wyboru / odłączone urządzenie = domyślne wejście systemu.
-    private func selectInputDevice(on input: AVAudioInputNode) {
-        guard let device = AudioDevices.selectedDevice() else {
-            NSLog("[Audio] input device: system default (%@)", AudioDevices.defaultInputDevice()?.name ?? "?")
-            return
-        }
-        guard let unit = input.audioUnit else {
-            NSLog("[Audio] input node has no audio unit — using system default")
-            return
-        }
-        var id = device.id
-        let status = AudioUnitSetProperty(unit,
-                                          kAudioOutputUnitProperty_CurrentDevice,
-                                          kAudioUnitScope_Global,
-                                          0,
-                                          &id,
-                                          UInt32(MemoryLayout<AudioDeviceID>.size))
-        NSLog("[Audio] input device: %@ (uid=%@) status=%d", device.name, device.uid, status)
     }
 
     private func handleTap(_ pcm: AVAudioPCMBuffer) {

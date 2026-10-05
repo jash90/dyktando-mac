@@ -37,6 +37,10 @@ struct HUDView: View {
 
     @ViewBuilder private var icon: some View {
         switch state.phase {
+        case .idle where state.meetingStartedAt != nil:
+            Image(systemName: "record.circle.fill")
+                .foregroundStyle(.red)
+                .imageScale(.small)
         case .idle:
             Image(systemName: "mic.fill")
                 .foregroundStyle(.secondary)
@@ -55,6 +59,12 @@ struct HUDView: View {
 
     @ViewBuilder private var content: some View {
         switch state.phase {
+        case .idle where state.meetingStartedAt != nil:
+            TimelineView(.periodic(from: .now, by: 1)) { context in
+                Text(AppDelegate.clock(context.date.timeIntervalSince(state.meetingStartedAt ?? context.date)))
+                    .font(.system(size: 11, weight: .medium, design: .rounded).monospacedDigit())
+                    .foregroundStyle(.red)
+            }
         case .idle:
             Text("F5")
                 .font(.system(size: 11, weight: .medium, design: .rounded))

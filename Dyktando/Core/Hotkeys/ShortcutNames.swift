@@ -7,4 +7,6 @@ extension KeyboardShortcuts.Name {
                                       default: .init(.space, modifiers: [.control, .option]))
     static let openSettings = Self("openSettings",
                                    default: .init(.comma, modifiers: [.control, .option]))
+    static let toggleMeetingRecording = Self("toggleMeetingRecording",
+                                             default: .init(.r, modifiers: [.control, .option]))
 }

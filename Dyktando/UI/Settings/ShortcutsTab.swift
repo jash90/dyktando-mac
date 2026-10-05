@@ -10,6 +10,7 @@ struct ShortcutsTab: View {
                 KeyboardShortcuts.Recorder("Push-to-talk", name: .pushToTalk)
                 KeyboardShortcuts.Recorder("Przełącz dyktowanie", name: .toggleDictation)
                 KeyboardShortcuts.Recorder("Otwórz Ustawienia", name: .openSettings)
+                KeyboardShortcuts.Recorder("Nagrywanie spotkania (start/stop)", name: .toggleMeetingRecording)
             }
             Section {
                 Picker("Push-to-talk klawiszem modyfikującym", selection: $modifierPTT) {
@@ -32,7 +33,7 @@ struct ShortcutsTab: View {
             }
             Section {
                 Button("Przywróć domyślne") {
-                    KeyboardShortcuts.reset(.pushToTalk, .toggleDictation, .openSettings)
+                    KeyboardShortcuts.reset(.pushToTalk, .toggleDictation, .openSettings, .toggleMeetingRecording)
                     modifierPTT = ""
                 }
             }
