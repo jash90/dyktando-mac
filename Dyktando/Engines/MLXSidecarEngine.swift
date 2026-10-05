@@ -46,7 +46,9 @@ final class MLXSidecarEngine: TranscriptionEngine, @unchecked Sendable {
 
     func install(progress: @escaping @Sendable (Double) -> Void) async throws {
         progress(0.05)
-        try await MLXSidecar.shared.ensureEnvironment()   // pierwsza instalacja: 1–3 min
+        // Przez ensureServer (wspólny start), nie ensureEnvironment — inaczej instalacja w trakcie
+        // prewarmu odpaliłaby drugi `uv sync` na tym samym venv.
+        try await MLXSidecar.shared.ensureServer()   // pierwsza instalacja: 1–3 min
         progress(0.4)
         try await MLXSidecar.shared.prepare(model: variant.modelKey)   // pobranie modelu: do kilku min
         try Data().write(to: markerURL)

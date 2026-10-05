@@ -107,19 +107,26 @@ actor MLXSidecar {
     // MARK: - Serwer
 
     func ensureServer() async throws {
-        if let existing = startTask {
-            try await existing.value
-            if await health() { return }
-            startTask = nil  // serwer padł po starcie — uruchom ponownie
+        // Wszyscy wołający czekają na ten sam start. Po awarii serwera nowy start tworzy tylko ten,
+        // kto zastał jeszcze stary task (porównanie tożsamości) — reszta czeka na nowy.
+        for _ in 0..<3 {
+            if let existing = startTask {
+                try await existing.value
+                if await health() { return }
+                if startTask == existing { startTask = nil }  // serwer padł po starcie
+                continue
+            }
+            let task = Task { try await self.startServer() }
+            startTask = task
+            do {
+                try await task.value
+                return
+            } catch {
+                if startTask == task { startTask = nil }  // następna próba zacznie od nowa
+                throw error
+            }
         }
-        let task = Task { try await self.startServer() }
-        startTask = task
-        do {
-            try await task.value
-        } catch {
-            startTask = nil  // następna próba może spróbować od nowa
-            throw error
-        }
+        throw SidecarError.serverDidNotStart("serwer nie odpowiada po kolejnych startach")
     }
 
     private func startServer() async throws {
